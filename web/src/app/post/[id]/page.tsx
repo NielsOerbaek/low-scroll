@@ -1,0 +1,57 @@
+import { getPost, getMediaForPost } from "@/lib/db";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+export default async function PostPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const post = getPost(id);
+  if (!post) notFound();
+
+  const media = getMediaForPost(id);
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="mb-4">
+        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">&larr; Back to feed</Link>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4">
+        <Link href={`/account/${post.username}`} className="font-semibold hover:underline">
+          @{post.username}
+        </Link>
+        <Badge variant="secondary">{post.type}</Badge>
+        <span className="text-sm text-muted-foreground">
+          {new Date(post.timestamp).toLocaleString()}
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {media.map((m) => (
+          <div key={m.id}>
+            {m.media_type === "image" ? (
+              <img src={`/api/media/${m.file_path}`} alt="" className="w-full rounded-lg" />
+            ) : (
+              <video src={`/api/media/${m.file_path}`} controls className="w-full rounded-lg" />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {post.caption && (
+        <p className="mt-4 text-sm whitespace-pre-wrap">{post.caption}</p>
+      )}
+
+      {post.permalink && (
+        <a
+          href={post.permalink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block mt-4 text-sm text-muted-foreground hover:text-foreground"
+        >
+          View on Instagram &rarr;
+        </a>
+      )}
+    </div>
+  );
+}
