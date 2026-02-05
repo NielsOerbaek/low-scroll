@@ -83,3 +83,28 @@ export function setConfig(key: string, value: string): void {
   );
   db.close();
 }
+
+export interface ManualRun {
+  id: number;
+  since_date: string;
+  status: string;
+  new_posts_count: number;
+  new_stories_count: number;
+  error: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export function insertManualRun(sinceDate: string): number {
+  const db = getWritableDb();
+  const result = db.prepare("INSERT INTO manual_runs (since_date) VALUES (?)").run(sinceDate);
+  db.close();
+  return Number(result.lastInsertRowid);
+}
+
+export function getRecentManualRuns(limit = 10): ManualRun[] {
+  return getDb()
+    .prepare("SELECT * FROM manual_runs ORDER BY created_at DESC LIMIT ?")
+    .all(limit) as ManualRun[];
+}

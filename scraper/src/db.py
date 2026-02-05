@@ -60,6 +60,18 @@ class Database:
                 new_posts_count INTEGER DEFAULT 0,
                 new_stories_count INTEGER DEFAULT 0
             );
+
+            CREATE TABLE IF NOT EXISTS manual_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                since_date TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                new_posts_count INTEGER DEFAULT 0,
+                new_stories_count INTEGER DEFAULT 0,
+                error TEXT,
+                created_at DATETIME DEFAULT (datetime('now')),
+                started_at DATETIME,
+                finished_at DATETIME
+            );
         """)
 
     def upsert_account(self, username: str, profile_pic_path: str | None):
@@ -168,6 +180,53 @@ class Database:
     def get_scrape_run(self, run_id: int) -> dict | None:
         row = self.execute("SELECT * FROM scrape_runs WHERE id=?", (run_id,)).fetchone()
         return dict(row) if row else None
+
+    def insert_manual_run(self, since_date: str) -> int:
+        cursor = self.execute(
+            "INSERT INTO manual_runs (since_date) VALUES (?)", (since_date,)
+        )
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def get_pending_manual_run(self) -> dict | None:
+        row = self.execute(
+            "SELECT * FROM manual_runs WHERE status='pending' ORDER BY created_at ASC LIMIT 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+    def start_manual_run(self, run_id: int):
+        self.execute(
+            "UPDATE manual_runs SET status='running', started_at=datetime('now') WHERE id=?",
+            (run_id,),
+        )
+        self.conn.commit()
+
+    def finish_manual_run(self, run_id: int, status: str,
+                          new_posts: int = 0, new_stories: int = 0,
+                          error: str | None = None):
+        self.execute(
+            """UPDATE manual_runs
+               SET status=?, finished_at=datetime('now'),
+                   new_posts_count=?, new_stories_count=?, error=?
+               WHERE id=?""",
+            (status, new_posts, new_stories, error, run_id),
+        )
+        self.conn.commit()
+
+    def get_recent_manual_runs(self, limit: int = 10) -> list[dict]:
+        rows = self.execute(
+            "SELECT * FROM manual_runs ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def reset_stale_manual_runs(self):
+        self.execute(
+            """UPDATE manual_runs SET status='error', error='Stale: reset on startup',
+               finished_at=datetime('now')
+               WHERE status='running'
+               AND started_at < datetime('now', '-1 hour')"""
+        )
+        self.conn.commit()
 
     def close(self):
         if self._conn:

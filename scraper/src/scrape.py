@@ -12,12 +12,15 @@ class Scraper:
         self.ig = ig_client
         self.downloader = downloader
 
-    def scrape_account(self, username: str) -> tuple[int, int]:
+    def scrape_account(self, username: str, since_date: str | None = None) -> tuple[int, int]:
         new_posts = 0
         new_stories = 0
 
-        posts = self.ig.get_user_posts(username, amount=20)
+        amount = 500 if since_date else 20
+        posts = self.ig.get_user_posts(username, amount=amount)
         for post in posts:
+            if since_date and post["timestamp"] < since_date:
+                break
             was_new = self._process_post(post, username)
             if was_new:
                 new_posts += 1
@@ -66,6 +69,25 @@ class Scraper:
             )
 
         return True
+
+    def scrape_all_backfill(self, since_date: str) -> tuple[int, int]:
+        accounts = self.db.get_all_accounts()
+        total_posts = 0
+        total_stories = 0
+
+        for account in accounts:
+            username = account["username"]
+            try:
+                logger.info(f"Backfill scraping {username} since {since_date}...")
+                posts, stories = self.scrape_account(username, since_date=since_date)
+                total_posts += posts
+                total_stories += stories
+                logger.info(f"  {username}: {posts} new posts, {stories} new stories")
+                self.ig.random_delay()
+            except Exception as e:
+                logger.error(f"  Error scraping {username}: {e}")
+
+        return total_posts, total_stories
 
     def scrape_all(self) -> tuple[int, int]:
         accounts = self.db.get_all_accounts()

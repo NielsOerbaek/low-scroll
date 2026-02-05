@@ -96,3 +96,49 @@ def test_insert_scrape_run(db):
     run = db.get_scrape_run(run_id)
     assert run["status"] == "success"
     assert run["new_posts_count"] == 3
+
+
+def test_initialize_creates_manual_runs_table(db):
+    tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    table_names = {row["name"] for row in tables}
+    assert "manual_runs" in table_names
+
+
+def test_manual_run_lifecycle(db):
+    run_id = db.insert_manual_run("2026-01-01")
+    run = db.get_pending_manual_run()
+    assert run is not None
+    assert run["id"] == run_id
+    assert run["since_date"] == "2026-01-01"
+    assert run["status"] == "pending"
+
+    db.start_manual_run(run_id)
+    assert db.get_pending_manual_run() is None
+
+    db.finish_manual_run(run_id, "success", new_posts=5, new_stories=2)
+    runs = db.get_recent_manual_runs()
+    assert len(runs) == 1
+    assert runs[0]["status"] == "success"
+    assert runs[0]["new_posts_count"] == 5
+    assert runs[0]["new_stories_count"] == 2
+
+
+def test_manual_run_error(db):
+    run_id = db.insert_manual_run("2026-01-01")
+    db.start_manual_run(run_id)
+    db.finish_manual_run(run_id, "error", error="Something went wrong")
+    runs = db.get_recent_manual_runs()
+    assert runs[0]["error"] == "Something went wrong"
+
+
+def test_reset_stale_manual_runs(db):
+    run_id = db.insert_manual_run("2026-01-01")
+    db.execute(
+        "UPDATE manual_runs SET status='running', started_at=datetime('now', '-2 hours') WHERE id=?",
+        (run_id,),
+    )
+    db.conn.commit()
+    db.reset_stale_manual_runs()
+    runs = db.get_recent_manual_runs()
+    assert runs[0]["status"] == "error"
+    assert "Stale" in runs[0]["error"]

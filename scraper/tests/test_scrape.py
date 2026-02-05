@@ -96,3 +96,62 @@ def test_scrape_all_returns_totals(env):
 
     total_posts, total_stories = scraper.scrape_all()
     assert total_posts >= 1
+
+
+def test_scrape_account_backfill_filters_by_date(env):
+    db, media_dir = env
+    db.upsert_account("testuser", None)
+
+    mock_ig = MagicMock()
+    mock_ig.get_user_posts.return_value = [
+        {
+            "id": "p_new",
+            "caption": "Recent",
+            "timestamp": "2026-01-15T00:00:00",
+            "permalink": "",
+            "post_type": "post",
+            "media": [],
+        },
+        {
+            "id": "p_old",
+            "caption": "Old",
+            "timestamp": "2025-12-01T00:00:00",
+            "permalink": "",
+            "post_type": "post",
+            "media": [],
+        },
+    ]
+    mock_ig.get_user_stories.return_value = []
+    mock_downloader = MagicMock()
+
+    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader)
+    new_posts, new_stories = scraper.scrape_account("testuser", since_date="2026-01-01")
+
+    assert new_posts == 1
+    assert db.get_post("p_new") is not None
+    assert db.get_post("p_old") is None
+    mock_ig.get_user_posts.assert_called_with("testuser", amount=500)
+
+
+def test_scrape_all_backfill(env):
+    db, media_dir = env
+    db.upsert_account("user1", None)
+
+    mock_ig = MagicMock()
+    mock_ig.get_user_posts.return_value = [
+        {
+            "id": "bp1",
+            "caption": "Backfill",
+            "timestamp": "2026-01-10T00:00:00",
+            "permalink": "",
+            "post_type": "post",
+            "media": [],
+        },
+    ]
+    mock_ig.get_user_stories.return_value = []
+    mock_ig.random_delay = MagicMock()
+    mock_downloader = MagicMock()
+
+    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader)
+    total_posts, total_stories = scraper.scrape_all_backfill("2026-01-01")
+    assert total_posts == 1

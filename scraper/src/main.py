@@ -3,6 +3,7 @@ import signal
 import sys
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from src.config import Config
 from src.db import Database
@@ -75,11 +76,60 @@ def run_scrape():
     db.close()
 
 
+def check_manual_runs():
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    run = db.get_pending_manual_run()
+    if not run:
+        db.close()
+        return
+
+    run_id = run["id"]
+    since_date = run["since_date"]
+    logger.info(f"Starting manual run #{run_id} (since {since_date})...")
+    db.start_manual_run(run_id)
+
+    cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+    cookies = cookie_mgr.get_cookies()
+
+    if not cookies:
+        logger.warning("No cookies for manual run.")
+        db.finish_manual_run(run_id, "error", error="No cookies configured")
+        db.close()
+        return
+
+    ig = InstagramClient(cookies)
+    if not ig.validate_session():
+        logger.warning("Stale cookies for manual run.")
+        cookie_mgr.mark_stale()
+        db.finish_manual_run(run_id, "error", error="Cookies are stale")
+        db.close()
+        return
+
+    downloader = MediaDownloader(config.MEDIA_PATH)
+    scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
+
+    try:
+        total_posts, total_stories = scraper.scrape_all_backfill(since_date)
+        db.finish_manual_run(run_id, "success", total_posts, total_stories)
+        logger.info(f"Manual run #{run_id} complete: {total_posts} posts, {total_stories} stories")
+    except Exception as e:
+        logger.error(f"Manual run #{run_id} failed: {e}")
+        db.finish_manual_run(run_id, "error", error=str(e))
+
+    db.close()
+
+
 def main():
     config = Config()
 
     db = Database(config.DATABASE_PATH)
     db.initialize()
+
+    # Reset stale manual runs from previous crashes
+    db.reset_stale_manual_runs()
 
     if not db.get_config("cron_schedule"):
         db.set_config("cron_schedule", config.CRON_SCHEDULE)
@@ -98,6 +148,12 @@ def main():
         id="scrape_job",
         name="Instagram Scrape",
         misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        check_manual_runs,
+        IntervalTrigger(seconds=30),
+        id="manual_run_check",
+        name="Manual Run Check",
     )
 
     logger.info("Running initial scrape...")
