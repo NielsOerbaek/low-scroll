@@ -91,6 +91,7 @@ export interface ManualRun {
   new_posts_count: number;
   new_stories_count: number;
   error: string | null;
+  log: string;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -107,4 +108,9 @@ export function getRecentManualRuns(limit = 10): ManualRun[] {
   return getDb()
     .prepare("SELECT * FROM manual_runs ORDER BY created_at DESC LIMIT ?")
     .all(limit) as ManualRun[];
+}
+
+export function getManualRunLog(runId: number): string {
+  const row = getDb().prepare("SELECT log FROM manual_runs WHERE id = ?").get(runId) as { log: string } | undefined;
+  return row?.log ?? "";
 }

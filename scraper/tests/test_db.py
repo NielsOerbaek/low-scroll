@@ -142,3 +142,13 @@ def test_reset_stale_manual_runs(db):
     runs = db.get_recent_manual_runs()
     assert runs[0]["status"] == "error"
     assert "Stale" in runs[0]["error"]
+
+
+def test_manual_run_log(db):
+    run_id = db.insert_manual_run("2026-01-01")
+    db.append_manual_run_log(run_id, "Starting scrape...")
+    db.append_manual_run_log(run_id, "Scraped user1: 3 posts")
+    log = db.get_manual_run_log(run_id)
+    assert "Starting scrape..." in log
+    assert "Scraped user1: 3 posts" in log
+    assert log.count("\n") == 2

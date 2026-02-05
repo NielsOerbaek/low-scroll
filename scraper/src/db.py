@@ -68,6 +68,7 @@ class Database:
                 new_posts_count INTEGER DEFAULT 0,
                 new_stories_count INTEGER DEFAULT 0,
                 error TEXT,
+                log TEXT DEFAULT '',
                 created_at DATETIME DEFAULT (datetime('now')),
                 started_at DATETIME,
                 finished_at DATETIME
@@ -212,6 +213,17 @@ class Database:
             (status, new_posts, new_stories, error, run_id),
         )
         self.conn.commit()
+
+    def append_manual_run_log(self, run_id: int, line: str):
+        self.execute(
+            "UPDATE manual_runs SET log = log || ? WHERE id=?",
+            (line + "\n", run_id),
+        )
+        self.conn.commit()
+
+    def get_manual_run_log(self, run_id: int) -> str:
+        row = self.execute("SELECT log FROM manual_runs WHERE id=?", (run_id,)).fetchone()
+        return row["log"] if row else ""
 
     def get_recent_manual_runs(self, limit: int = 10) -> list[dict]:
         rows = self.execute(
