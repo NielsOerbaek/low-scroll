@@ -6,9 +6,10 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20") || 20));
   const offset = Math.max(0, parseInt(searchParams.get("offset") || "0") || 0);
   const account = searchParams.get("account") || undefined;
+  const type = searchParams.get("type") || undefined;
 
   try {
-    const posts = getFeed(limit, offset, account);
+    const posts = getFeed(limit, offset, account, type);
     const enriched = posts.map((post) => ({
       ...post,
       media: getMediaForPost(post.id),

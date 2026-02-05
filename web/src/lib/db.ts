@@ -42,16 +42,26 @@ export interface Media {
   order: number;
 }
 
-export function getFeed(limit = 20, offset = 0, account?: string): Post[] {
+export function getFeed(limit = 20, offset = 0, account?: string, type?: string): Post[] {
   const db = getDb();
+  const conditions: string[] = [];
+  const params: any[] = [];
+
   if (account) {
-    return db
-      .prepare("SELECT * FROM posts WHERE username = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?")
-      .all(account, limit, offset) as Post[];
+    conditions.push("username = ?");
+    params.push(account);
   }
+  if (type === "story") {
+    conditions.push("type = 'story'");
+  } else if (type === "post") {
+    conditions.push("type IN ('post', 'reel')");
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  params.push(limit, offset);
   return db
-    .prepare("SELECT * FROM posts ORDER BY timestamp DESC LIMIT ? OFFSET ?")
-    .all(limit, offset) as Post[];
+    .prepare(`SELECT * FROM posts ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`)
+    .all(...params) as Post[];
 }
 
 export function getPost(id: string): Post | undefined {
