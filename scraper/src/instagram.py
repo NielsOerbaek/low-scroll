@@ -38,10 +38,17 @@ class InstagramClient:
         resp.raise_for_status()
         return resp.json()
 
-    def validate_session(self) -> bool:
+    def validate_session(self) -> bool | None:
+        """Returns True if valid, False if invalid/stale, None if rate limited."""
         try:
             data = self._get("/api/v1/users/web_profile_info/", {"username": "instagram"})
             return "data" in data and "user" in data["data"]
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 429:
+                logger.warning("Session validation skipped: rate limited")
+                return None  # Can't tell, don't mark stale
+            logger.warning(f"Session validation failed: {e}")
+            return False
         except Exception as e:
             logger.warning(f"Session validation failed: {e}")
             return False

@@ -39,7 +39,11 @@ def run_scrape():
         return
 
     ig = InstagramClient(cookies)
-    if not ig.validate_session():
+    session_ok = ig.validate_session()
+    if session_ok is None:
+        logger.warning("Rate limited during validation, skipping this run.")
+        return
+    if not session_ok:
         logger.warning("Cookies are stale!")
         cookie_mgr.mark_stale()
         if config.EMAIL_RECIPIENT:
@@ -116,7 +120,11 @@ def check_cookie_test():
         return
 
     ig = InstagramClient(cookies)
-    if ig.validate_session():
+    session_ok = ig.validate_session()
+    if session_ok is None:
+        db.set_config("cookie_test", "error:Rate limited, try again later")
+        logger.warning("Cookie test failed: rate limited")
+    elif session_ok:
         username = ig.get_logged_in_username()
         db.set_config("cookie_test", f"valid:{username}")
         logger.info(f"Cookie test passed: @{username}")
@@ -157,7 +165,12 @@ def check_manual_runs():
             return
 
         ig = InstagramClient(cookies)
-        if not ig.validate_session():
+        session_ok = ig.validate_session()
+        if session_ok is None:
+            logger.warning("Rate limited during manual run validation.")
+            db.finish_manual_run(run_id, "error", error="Rate limited, try again later")
+            return
+        if not session_ok:
             logger.warning("Stale cookies for manual run.")
             cookie_mgr.mark_stale()
             db.finish_manual_run(run_id, "error", error="Cookies are stale")
