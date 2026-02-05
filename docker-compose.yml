@@ -1,0 +1,42 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./data/caddy:/data
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    expose:
+      - "3000"
+    environment:
+      - DATABASE_PATH=/data/db/ig.db
+      - MEDIA_PATH=/data/media
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - BASE_URL=${BASE_URL}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    volumes:
+      - ./data/db:/data/db
+      - ./data/media:/data/media
+    restart: unless-stopped
+
+  scraper:
+    build: ./scraper
+    environment:
+      - DATABASE_PATH=/data/db/ig.db
+      - MEDIA_PATH=/data/media
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_RECIPIENT=${EMAIL_RECIPIENT}
+      - CRON_SCHEDULE=${CRON_SCHEDULE}
+      - BASE_URL=${BASE_URL}
+    volumes:
+      - ./data/db:/data/db
+      - ./data/media:/data/media
+    restart: unless-stopped

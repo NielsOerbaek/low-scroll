@@ -1,0 +1,15 @@
+# Data
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+scraper/.venv/
+
+# Node
+node_modules/
+.next/
+
+# Env
+.env
