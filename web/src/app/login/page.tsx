@@ -25,7 +25,8 @@ export default function LoginPage() {
     });
 
     if (res.ok) {
-      router.push("/");
+      window.location.href = "/";
+      return;
     } else {
       setError("Invalid password");
     }
