@@ -7,8 +7,7 @@ from instagrapi.exceptions import LoginRequired, ClientError
 class InstagramClient:
     def __init__(self, cookies: dict[str, str]):
         self._cl = Client()
-        self._cl.set_settings({})
-        self._cl.set_cookies(cookies)
+        self._cl.set_settings({"cookies": cookies})
 
     def validate_session(self) -> bool:
         try:

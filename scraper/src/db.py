@@ -74,6 +74,10 @@ class Database:
                 finished_at DATETIME
             );
         """)
+        # Migration: add log column if missing (existing DBs)
+        cols = {row[1] for row in self.conn.execute("PRAGMA table_info(manual_runs)").fetchall()}
+        if "log" not in cols:
+            self.conn.execute("ALTER TABLE manual_runs ADD COLUMN log TEXT DEFAULT ''")
 
     def upsert_account(self, username: str, profile_pic_path: str | None):
         self.execute(
