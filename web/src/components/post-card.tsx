@@ -46,13 +46,13 @@ export function PostCard({ post }: PostCardProps) {
           <img
             src={`/api/media/${displayPath}`}
             alt={post.caption || ""}
-            className="max-w-full"
+            className="w-full"
           />
         )}
         {displayPath && firstMedia.media_type === "video" && (
           <video
             src={`/api/media/${firstMedia.file_path}`}
-            className="max-w-full"
+            className="w-full"
             muted
             playsInline
           />
