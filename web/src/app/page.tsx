@@ -11,24 +11,37 @@ export default function HomePage() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Feed</h1>
-        {accounts.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-6">
+      {accounts.length > 0 && (
+        <aside className="w-1/4 shrink-0 hidden md:block">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Accounts
+          </h2>
+          <nav className="space-y-1">
             {accounts.map((a) => (
               <Link
                 key={a.username}
                 href={`/account/${a.username}`}
-                className="text-sm px-3 py-1 rounded-full border hover:bg-accent"
+                className="flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors"
               >
-                @{a.username}
+                {a.profile_pic_path ? (
+                  <img
+                    src={`/api/media/${a.profile_pic_path}`}
+                    alt={a.username}
+                    className="w-6 h-6 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="w-6 h-6 rounded-full bg-muted" />
+                )}
+                <span className="truncate">@{a.username}</span>
               </Link>
             ))}
-          </div>
-        )}
+          </nav>
+        </aside>
+      )}
+      <div className="flex-1 min-w-0">
+        <Feed />
       </div>
-      <Feed />
     </div>
   );
 }

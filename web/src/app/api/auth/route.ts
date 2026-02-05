@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   response.cookies.set("ig_session", token, {
     httpOnly: true,
     secure: true,
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
     path: "/",
   });
