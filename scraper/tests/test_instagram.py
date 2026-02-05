@@ -3,53 +3,71 @@ import pytest
 from src.instagram import InstagramClient
 
 
-def test_validate_session_returns_true_on_success():
+FAKE_COOKIES = {"sessionid": "fake_session", "csrftoken": "fake_csrf", "ds_user_id": "12345"}
+
+
+def _make_client():
+    """Create a client with a mocked requests session."""
     client = InstagramClient.__new__(InstagramClient)
-    client._cl = MagicMock()
-    client._sessionid = "12345678901234567890123456789012345"
-    client._cl.login_by_sessionid.return_value = True
+    client._session = MagicMock()
+    client._ds_user_id = "12345"
+    client._username = None
+    return client
+
+
+def test_validate_session_returns_true_on_success():
+    client = _make_client()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"data": {"user": {"username": "instagram"}}}
+    client._session.get.return_value = mock_resp
     assert client.validate_session() is True
 
 
 def test_validate_session_returns_false_on_failure():
-    client = InstagramClient.__new__(InstagramClient)
-    client._cl = MagicMock()
-    client._sessionid = "12345678901234567890123456789012345"
-    client._cl.login_by_sessionid.side_effect = Exception("Login required")
+    client = _make_client()
+    client._session.get.side_effect = Exception("Connection error")
     assert client.validate_session() is False
 
 
 def test_get_following_returns_usernames():
-    client = InstagramClient.__new__(InstagramClient)
-    client._cl = MagicMock()
-    user_mock = MagicMock()
-    user_mock.pk = 123
-    client._cl.account_info.return_value = user_mock
-    following_mock = MagicMock()
-    following_mock.username = "followed_user"
-    client._cl.user_following.return_value = {1: following_mock}
+    client = _make_client()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "users": [{"username": "followed_user", "pk": 1}],
+        "next_max_id": None,
+    }
+    client._session.get.return_value = mock_resp
     result = client.get_following()
     assert result == [{"username": "followed_user", "pk": 1}]
 
 
-def test_get_user_posts():
-    client = InstagramClient.__new__(InstagramClient)
-    client._cl = MagicMock()
-    post_mock = MagicMock()
-    post_mock.pk = "post123"
-    post_mock.caption_text = "Hello"
-    post_mock.taken_at = "2026-01-01T00:00:00"
-    post_mock.code = "abc"
-    post_mock.media_type = 1  # photo
-    post_mock.resources = []
-    post_mock.thumbnail_url = "https://example.com/thumb.jpg"
-    post_mock.video_url = None
+@patch.object(InstagramClient, "random_delay")
+def test_get_user_posts(mock_delay):
+    client = _make_client()
 
-    user_mock = MagicMock()
-    user_mock.pk = 456
-    client._cl.user_id_from_username.return_value = 456
-    client._cl.user_medias.return_value = [post_mock]
+    profile_resp = MagicMock()
+    profile_resp.status_code = 200
+    profile_resp.json.return_value = {"data": {"user": {"id": "456"}}}
 
+    feed_resp = MagicMock()
+    feed_resp.status_code = 200
+    feed_resp.json.return_value = {
+        "items": [{
+            "pk": "post123",
+            "code": "abc",
+            "caption": {"text": "Hello"},
+            "taken_at": 1704067200,
+            "media_type": 1,
+            "image_versions2": {"candidates": [{"url": "https://example.com/thumb.jpg"}]},
+        }],
+        "next_max_id": None,
+    }
+
+    client._session.get.side_effect = [profile_resp, feed_resp]
     result = client.get_user_posts("testuser", amount=1)
     assert len(result) == 1
     assert result[0]["id"] == "post123"
+    assert result[0]["caption"] == "Hello"
+    assert result[0]["permalink"] == "https://www.instagram.com/p/abc/"
