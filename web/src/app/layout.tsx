@@ -8,7 +8,10 @@ const geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "ig-sub",
   description: "Instagram digest feed",
-  icons: { icon: "/favicon.svg" },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
