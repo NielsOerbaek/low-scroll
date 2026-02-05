@@ -6,14 +6,16 @@ from src.instagram import InstagramClient
 def test_validate_session_returns_true_on_success():
     client = InstagramClient.__new__(InstagramClient)
     client._cl = MagicMock()
-    client._cl.account_info.return_value = MagicMock(username="testuser")
+    client._sessionid = "12345678901234567890123456789012345"
+    client._cl.login_by_sessionid.return_value = True
     assert client.validate_session() is True
 
 
 def test_validate_session_returns_false_on_failure():
     client = InstagramClient.__new__(InstagramClient)
     client._cl = MagicMock()
-    client._cl.account_info.side_effect = Exception("Login required")
+    client._sessionid = "12345678901234567890123456789012345"
+    client._cl.login_by_sessionid.side_effect = Exception("Login required")
     assert client.validate_session() is False
 
 

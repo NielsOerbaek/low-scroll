@@ -43,7 +43,10 @@ def run_scrape():
         logger.warning("Cookies are stale!")
         cookie_mgr.mark_stale()
         if config.EMAIL_RECIPIENT:
-            digest.send_stale_cookies_alert(config.EMAIL_RECIPIENT)
+            try:
+                digest.send_stale_cookies_alert(config.EMAIL_RECIPIENT)
+            except Exception as e:
+                logger.error(f"Failed to send stale cookies alert: {e}")
         return
 
     run_id = db.insert_scrape_run()
