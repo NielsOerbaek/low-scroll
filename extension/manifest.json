@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "ig-sub Cookie Sync",
+  "version": "1.0",
+  "description": "Sync Instagram cookies to your ig-sub instance",
+  "permissions": ["cookies", "storage"],
+  "host_permissions": ["https://*.instagram.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.svg"
+  },
+  "icons": {
+    "128": "icon.svg"
+  }
+}

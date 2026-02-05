@@ -5,7 +5,9 @@ export function middleware(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isAuthApi = request.nextUrl.pathname === "/api/auth";
 
-  if (isLoginPage || isAuthApi) {
+  const isExtensionApi = request.nextUrl.pathname === "/api/extension/cookies";
+
+  if (isLoginPage || isAuthApi || isExtensionApi) {
     return NextResponse.next();
   }
 

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Courier New", monospace;
+    font-size: 13px;
+    width: 320px;
+    padding: 16px;
+    background: #fff;
+    color: #222;
+  }
+  h1 { font-size: 14px; margin-bottom: 12px; }
+  label { display: block; font-size: 11px; color: #888; margin-bottom: 2px; }
+  input {
+    width: 100%; padding: 6px 8px; border: 1px solid #ddd;
+    font-family: inherit; font-size: 12px; margin-bottom: 8px;
+  }
+  .cookie-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0; font-size: 12px;
+  }
+  .cookie-row .name { color: #888; min-width: 80px; }
+  .cookie-row .val { color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .found { color: #22c55e; }
+  .missing { color: #ef4444; }
+  button {
+    width: 100%; padding: 8px; margin-top: 8px;
+    background: #222; color: #fff; border: none;
+    font-family: inherit; font-size: 12px; cursor: pointer;
+  }
+  button:hover { background: #444; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  .status { margin-top: 8px; font-size: 11px; }
+  .status.ok { color: #22c55e; }
+  .status.err { color: #ef4444; }
+  hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+</style>
+</head>
+<body>
+  <h1>ig-sub cookie sync</h1>
+
+  <label>Instance URL</label>
+  <input type="url" id="url" value="" placeholder="https://ig.raakode.dk" />
+
+  <label>Admin Password</label>
+  <input type="password" id="password" placeholder="Required for API auth" />
+
+  <hr />
+
+  <div id="cookies-list"></div>
+
+  <button id="sync" disabled>Sync Cookies</button>
+  <div id="status" class="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

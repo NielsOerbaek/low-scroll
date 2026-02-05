@@ -48,6 +48,6 @@ def test_send_digest_calls_resend(builder):
         mock_resend.Emails.send.return_value = {"id": "email123"}
         builder.send("test@example.com", "<h1>Digest</h1>", post_count=3)
         mock_resend.Emails.send.assert_called_once()
-        call_args = mock_resend.Emails.send.call_args[1]
+        call_args = mock_resend.Emails.send.call_args[0][0]
         assert call_args["to"] == ["test@example.com"]
         assert "3" in call_args["subject"]

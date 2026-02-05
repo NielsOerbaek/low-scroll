@@ -27,12 +27,12 @@ class DigestBuilder:
         )
 
     def send(self, to_email: str, html: str, post_count: int):
-        resend.Emails.send(
-            from_=self.from_email,
-            to=[to_email],
-            subject=f"Instagram Digest: {post_count} new item{'s' if post_count != 1 else ''}",
-            html=html,
-        )
+        resend.Emails.send({
+            "from": self.from_email,
+            "to": [to_email],
+            "subject": f"Instagram Digest: {post_count} new item{'s' if post_count != 1 else ''}",
+            "html": html,
+        })
 
     def send_stale_cookies_alert(self, to_email: str):
         html = f"""
@@ -40,9 +40,9 @@ class DigestBuilder:
         <p>Your Instagram session cookies have expired. The scraper can't fetch new content until you update them.</p>
         <p><a href="{self.base_url}/settings">Update cookies &rarr;</a></p>
         """
-        resend.Emails.send(
-            from_=self.from_email,
-            to=[to_email],
-            subject="ig-sub: Instagram cookies expired",
-            html=html,
-        )
+        resend.Emails.send({
+            "from": self.from_email,
+            "to": [to_email],
+            "subject": "ig-sub: Instagram cookies expired",
+            "html": html,
+        })
