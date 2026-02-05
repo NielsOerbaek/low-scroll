@@ -15,6 +15,7 @@ export function SettingsForm() {
   const [cronSchedule, setCronSchedule] = useState("");
   const [emailRecipient, setEmailRecipient] = useState("");
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -89,9 +90,35 @@ export function SettingsForm() {
             <Label htmlFor="ds_user_id">ds_user_id</Label>
             <Input id="ds_user_id" value={dsUserId} onChange={(e) => setDsUserId(e.target.value)} placeholder="Paste ds_user_id cookie" />
           </div>
-          <Button onClick={saveCookies} disabled={saving || !sessionid}>
-            {saving ? "Saving..." : "Save Cookies"}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={saveCookies} disabled={saving || !sessionid}>
+              {saving ? "Saving..." : "Save Cookies"}
+            </Button>
+            {settings.hasCookies && (
+              <Button
+                variant="outline"
+                disabled={testing}
+                onClick={async () => {
+                  setTesting(true);
+                  setMessage("");
+                  try {
+                    const res = await fetch("/api/cookies/test", { method: "POST" });
+                    const data = await res.json();
+                    if (data.ok) {
+                      setMessage(`Cookies valid — logged in as @${data.username}`);
+                    } else {
+                      setMessage(`Cookie test failed: ${data.error}`);
+                    }
+                  } catch {
+                    setMessage("Cookie test failed: network error");
+                  }
+                  setTesting(false);
+                }}
+              >
+                {testing ? "Testing..." : "Test Cookies"}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
