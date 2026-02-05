@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 600px; margin: 0 auto; padding: 16px; background: #fafafa; }
+    .account-section { margin-bottom: 24px; }
+    .account-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #262626; }
+    .post-card { background: white; border: 1px solid #dbdbdb; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+    .post-card img { width: 100%; max-width: 400px; display: block; }
+    .post-body { padding: 12px; }
+    .post-caption { font-size: 14px; color: #262626; margin-bottom: 8px; }
+    .post-meta { font-size: 12px; color: #8e8e8e; }
+    .post-link { color: #0095f6; text-decoration: none; font-size: 13px; }
+    .badge { display: inline-block; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #efefef; color: #666; margin-right: 4px; }
+    .footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid #dbdbdb; font-size: 12px; color: #8e8e8e; }
+  </style>
+</head>
+<body>
+  <h2 style="color: #262626;">Instagram Digest</h2>
+  <p style="color: #8e8e8e; font-size: 13px;">{{ post_count }} new item{{ 's' if post_count != 1 else '' }} from {{ account_count }} account{{ 's' if account_count != 1 else '' }}</p>
+
+  {% for username, posts in grouped_posts.items() %}
+  <div class="account-section">
+    <div class="account-name">@{{ username }}</div>
+    {% for post in posts %}
+    <div class="post-card">
+      {% if post.media and post.media[0].thumbnail_path %}
+      <img src="{{ base_url }}/api/media/{{ post.media[0].thumbnail_path }}" alt="">
+      {% endif %}
+      <div class="post-body">
+        <span class="badge">{{ post.type }}</span>
+        {% if post.caption %}
+        <p class="post-caption">{{ post.caption[:200] }}{% if post.caption|length > 200 %}...{% endif %}</p>
+        {% endif %}
+        <div class="post-meta">{{ post.timestamp }}</div>
+        {% if post.type == 'story' %}
+        <a class="post-link" href="{{ base_url }}/story/{{ post.id }}">View in feed &rarr;</a>
+        {% else %}
+        <a class="post-link" href="{{ base_url }}/post/{{ post.id }}">View in feed &rarr;</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  <div class="footer">
+    You're following {{ account_count }} accounts.
+    <a href="{{ base_url }}/settings">Manage settings</a>
+  </div>
+</body>
+</html>
