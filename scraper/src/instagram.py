@@ -26,12 +26,15 @@ class InstagramClient:
         self._username = None
 
     def _get(self, path: str, params: dict | None = None) -> dict:
-        resp = self._session.get(f"{BASE}{path}", params=params)
-        if resp.status_code == 429:
-            wait = int(resp.headers.get("Retry-After", 60))
-            logger.warning(f"Rate limited, waiting {wait}s...")
-            time.sleep(wait)
+        for attempt in range(3):
             resp = self._session.get(f"{BASE}{path}", params=params)
+            if resp.status_code == 429:
+                wait = int(resp.headers.get("Retry-After", 30 * (attempt + 1)))
+                logger.warning(f"Rate limited (attempt {attempt + 1}/3), waiting {wait}s...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            return resp.json()
         resp.raise_for_status()
         return resp.json()
 
