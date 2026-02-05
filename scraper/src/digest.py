@@ -5,7 +5,7 @@ import resend
 
 
 class DigestBuilder:
-    def __init__(self, resend_api_key: str, base_url: str, from_email: str = "digest@ig.raakode.dk"):
+    def __init__(self, resend_api_key: str, base_url: str, from_email: str = "ig@raakode.dk"):
         self.base_url = base_url
         self.from_email = from_email
         resend.api_key = resend_api_key
