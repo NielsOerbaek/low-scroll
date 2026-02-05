@@ -29,7 +29,7 @@ export function PostCard({ post }: PostCardProps) {
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3">
+      <div className="flex items-center gap-2 px-3 py-1.5">
         <Link href={`/account/${post.username}`} className="text-sm font-semibold hover:underline">
           @{post.username}
         </Link>
@@ -59,7 +59,7 @@ export function PostCard({ post }: PostCardProps) {
         )}
       </Link>
       {post.caption && (
-        <CardContent className="px-4 py-3">
+        <CardContent className="px-3 py-1.5">
           <p className="text-sm text-muted-foreground line-clamp-4">{post.caption}</p>
         </CardContent>
       )}
