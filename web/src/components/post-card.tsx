@@ -24,7 +24,7 @@ interface PostCardProps {
 
 export function PostCard({ post }: PostCardProps) {
   const firstMedia = post.media[0];
-  const displayPath = firstMedia?.thumbnail_path || firstMedia?.file_path;
+  const displayPath = firstMedia?.file_path;
   const detailUrl = post.type === "story" ? `/story/${post.id}` : `/post/${post.id}`;
 
   return (
