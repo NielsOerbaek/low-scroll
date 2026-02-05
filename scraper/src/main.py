@@ -94,6 +94,39 @@ class DbLogHandler(logging.Handler):
             pass
 
 
+def check_cookie_test():
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    status = db.get_config("cookie_test")
+    if status != "pending":
+        db.close()
+        return
+
+    logger.info("Cookie test requested, validating session...")
+    db.set_config("cookie_test", "running")
+
+    cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+    cookies = cookie_mgr.get_cookies()
+
+    if not cookies:
+        db.set_config("cookie_test", "error:No cookies configured")
+        db.close()
+        return
+
+    ig = InstagramClient(cookies)
+    if ig.validate_session():
+        username = ig.get_logged_in_username()
+        db.set_config("cookie_test", f"valid:{username}")
+        logger.info(f"Cookie test passed: @{username}")
+    else:
+        db.set_config("cookie_test", "error:Cookies are stale or invalid")
+        logger.warning("Cookie test failed: stale cookies")
+
+    db.close()
+
+
 def check_manual_runs():
     config = Config()
     db = Database(config.DATABASE_PATH)
@@ -176,6 +209,12 @@ def main():
         IntervalTrigger(seconds=30),
         id="manual_run_check",
         name="Manual Run Check",
+    )
+    scheduler.add_job(
+        check_cookie_test,
+        IntervalTrigger(seconds=10),
+        id="cookie_test_check",
+        name="Cookie Test Check",
     )
 
     logger.info("Running initial scrape...")

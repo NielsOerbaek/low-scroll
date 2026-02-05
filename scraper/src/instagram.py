@@ -18,6 +18,13 @@ class InstagramClient:
         except Exception:
             return False
 
+    def get_logged_in_username(self) -> str:
+        try:
+            user = self._cl.account_info()
+            return user.username
+        except Exception:
+            return "unknown"
+
     def get_following(self) -> list[dict]:
         user = self._cl.account_info()
         following = self._cl.user_following(user.pk)

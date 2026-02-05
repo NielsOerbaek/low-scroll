@@ -101,18 +101,35 @@ export function SettingsForm() {
                 onClick={async () => {
                   setTesting(true);
                   setMessage("");
-                  try {
-                    const res = await fetch("/api/cookies/test", { method: "POST" });
-                    const data = await res.json();
-                    if (data.ok) {
-                      setMessage(`Cookies valid — logged in as @${data.username}`);
-                    } else {
-                      setMessage(`Cookie test failed: ${data.error}`);
+                  await fetch("/api/cookies/test", { method: "POST" });
+                  // Poll for result (scraper runs the actual test)
+                  const poll = setInterval(async () => {
+                    try {
+                      const res = await fetch("/api/cookies/test");
+                      const data = await res.json();
+                      if (data.status === "valid") {
+                        clearInterval(poll);
+                        setMessage(`Cookies valid — logged in as @${data.username}`);
+                        setTesting(false);
+                      } else if (data.status === "error") {
+                        clearInterval(poll);
+                        setMessage(`Cookie test failed: ${data.error}`);
+                        setTesting(false);
+                      }
+                    } catch {
+                      clearInterval(poll);
+                      setMessage("Cookie test failed: network error");
+                      setTesting(false);
                     }
-                  } catch {
-                    setMessage("Cookie test failed: network error");
-                  }
-                  setTesting(false);
+                  }, 2000);
+                  // Timeout after 60s
+                  setTimeout(() => {
+                    clearInterval(poll);
+                    if (testing) {
+                      setMessage("Cookie test timed out — scraper may be busy");
+                      setTesting(false);
+                    }
+                  }, 60000);
                 }}
               >
                 {testing ? "Testing..." : "Test Cookies"}
