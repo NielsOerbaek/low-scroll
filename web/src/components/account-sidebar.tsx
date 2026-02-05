@@ -8,7 +8,7 @@ interface Account {
   profile_pic_path: string | null;
 }
 
-export function AccountSidebar() {
+export function AccountSidebar({ active }: { active?: string } = {}) {
   const [accounts, setAccounts] = useState<Account[]>([]);
 
   useEffect(() => {
@@ -33,7 +33,9 @@ export function AccountSidebar() {
             <Link
               key={a.username}
               href={`/account/${a.username}`}
-              className="flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors"
+              className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded transition-colors ${
+                active === a.username ? "bg-accent font-semibold" : "hover:bg-accent"
+              }`}
             >
               {a.profile_pic_path ? (
                 <img

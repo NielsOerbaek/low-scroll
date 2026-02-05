@@ -1,16 +1,18 @@
 import { Feed } from "@/components/feed";
-import Link from "next/link";
+import { AccountSidebar } from "@/components/account-sidebar";
 
 export default async function AccountPage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
 
   return (
-    <div>
-      <div className="mb-4">
-        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">&larr; Back to feed</Link>
+    <div className="flex gap-6">
+      <aside className="w-1/4 shrink-0 hidden md:block">
+        <AccountSidebar active={username} />
+      </aside>
+      <div className="flex-1 min-w-0">
+        <h1 className="text-2xl font-bold mb-4">@{username}</h1>
+        <Feed account={username} />
       </div>
-      <h1 className="text-2xl font-bold mb-6">@{username}</h1>
-      <Feed account={username} />
     </div>
   );
 }
