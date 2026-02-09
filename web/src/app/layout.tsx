@@ -1,15 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 
 const geistMono = Geist_Mono({ subsets: ["latin"] });
 
+export const viewport: Viewport = {
+  themeColor: "#DD2A7B",
+};
+
 export const metadata: Metadata = {
   title: "low-scroll",
   description: "Instagram digest feed",
   manifest: "/manifest.json",
-  themeColor: "#DD2A7B",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
