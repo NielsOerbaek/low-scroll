@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MediaCarousel } from "@/components/media-carousel";
 
 interface PostMedia {
   id: number;
@@ -23,8 +24,6 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
-  const firstMedia = post.media[0];
-  const displayPath = firstMedia?.file_path;
   const detailUrl = post.type === "story" ? `/story/${post.id}` : `/post/${post.id}`;
 
   return (
@@ -34,30 +33,11 @@ export function PostCard({ post }: PostCardProps) {
           @{post.username}
         </Link>
         <Badge variant="secondary" className="text-xs">{post.type}</Badge>
-        {post.media.length > 1 && (
-          <Badge variant="outline" className="text-xs">{post.media.length} items</Badge>
-        )}
         <span className="text-xs text-muted-foreground ml-auto">
           {new Date(post.timestamp).toLocaleDateString()}
         </span>
       </div>
-      <Link href={detailUrl}>
-        {displayPath && firstMedia.media_type === "image" && (
-          <img
-            src={`/api/media/${displayPath}`}
-            alt={post.caption || ""}
-            className="w-full"
-          />
-        )}
-        {displayPath && firstMedia.media_type === "video" && (
-          <video
-            src={`/api/media/${firstMedia.file_path}`}
-            className="w-full"
-            muted
-            playsInline
-          />
-        )}
-      </Link>
+      <MediaCarousel media={post.media} detailUrl={detailUrl} />
       {post.caption && (
         <CardContent className="px-3 py-1.5">
           <p className="text-sm text-muted-foreground line-clamp-4">{post.caption}</p>

@@ -1,4 +1,5 @@
 import { getPost, getMediaForPost } from "@/lib/db";
+import { MediaCarousel } from "@/components/media-carousel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -24,15 +25,9 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
         </span>
       </div>
 
-      {media.map((m) => (
-        <div key={m.id} className="mb-4">
-          {m.media_type === "image" ? (
-            <img src={`/api/media/${m.file_path}`} alt="" className="w-full rounded-lg" />
-          ) : (
-            <video src={`/api/media/${m.file_path}`} controls autoPlay muted className="w-full rounded-lg" />
-          )}
-        </div>
-      ))}
+      <div className="rounded-lg overflow-hidden">
+        <MediaCarousel media={media} />
+      </div>
     </div>
   );
 }

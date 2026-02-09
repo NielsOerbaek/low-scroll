@@ -1,5 +1,6 @@
 import { getPost, getMediaForPost } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
+import { MediaCarousel } from "@/components/media-carousel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -26,16 +27,8 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         </span>
       </div>
 
-      <div className="space-y-4">
-        {media.map((m) => (
-          <div key={m.id}>
-            {m.media_type === "image" ? (
-              <img src={`/api/media/${m.file_path}`} alt="" className="w-full rounded-lg" />
-            ) : (
-              <video src={`/api/media/${m.file_path}`} controls className="w-full rounded-lg" />
-            )}
-          </div>
-        ))}
+      <div className="rounded-lg overflow-hidden">
+        <MediaCarousel media={media} />
       </div>
 
       {post.caption && (
