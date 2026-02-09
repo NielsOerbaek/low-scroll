@@ -110,27 +110,73 @@ def check_cookie_test():
 
     logger.info("Cookie test requested, validating session...")
     db.set_config("cookie_test", "running")
+    log_lines = []
 
+    def log(msg):
+        log_lines.append(msg)
+        db.set_config("cookie_test_log", "\n".join(log_lines))
+        logger.info(f"[cookie_test] {msg}")
+
+    log("Loading cookies from database...")
     cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
     cookies = cookie_mgr.get_cookies()
 
     if not cookies:
+        log("ERROR: No cookies configured.")
         db.set_config("cookie_test", "error:No cookies configured")
         db.close()
         return
 
+    has_session = bool(cookies.get("sessionid"))
+    has_csrf = bool(cookies.get("csrftoken"))
+    has_dsuid = bool(cookies.get("ds_user_id"))
+    log(f"Found cookies: sessionid={'yes' if has_session else 'MISSING'}, "
+        f"csrftoken={'yes' if has_csrf else 'MISSING'}, "
+        f"ds_user_id={cookies.get('ds_user_id', 'MISSING')}")
+
+    if not has_session:
+        log("ERROR: sessionid cookie is required.")
+        db.set_config("cookie_test", "error:sessionid cookie missing")
+        db.close()
+        return
+
+    log("Creating Instagram client...")
     ig = InstagramClient(cookies)
-    session_ok = ig.validate_session()
+
+    log("Testing session against Instagram API (GET /api/v1/users/web_profile_info/) ...")
+    log("(This may take a few minutes if rate-limited)")
+
+    # Capture instagram module logs (rate limit warnings etc.)
+    class CookieTestLogHandler(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.setFormatter(logging.Formatter("%(message)s"))
+
+        def emit(self, record):
+            try:
+                log(self.format(record))
+            except Exception:
+                pass
+
+    ig_logger = logging.getLogger("src.instagram")
+    handler = CookieTestLogHandler()
+    ig_logger.addHandler(handler)
+    try:
+        session_ok = ig.validate_session()
+    finally:
+        ig_logger.removeHandler(handler)
+
     if session_ok is None:
+        log("RESULT: Rate limited by Instagram. Try again in 10-15 minutes.")
         db.set_config("cookie_test", "error:Rate limited, try again later")
-        logger.warning("Cookie test failed: rate limited")
     elif session_ok:
+        log("Session is valid! Fetching username...")
         username = ig.get_logged_in_username()
+        log(f"RESULT: Cookies valid — logged in as @{username}")
         db.set_config("cookie_test", f"valid:{username}")
-        logger.info(f"Cookie test passed: @{username}")
     else:
+        log("RESULT: Cookies are stale or invalid. Re-sync from browser.")
         db.set_config("cookie_test", "error:Cookies are stale or invalid")
-        logger.warning("Cookie test failed: stale cookies")
 
     db.close()
 
@@ -230,8 +276,8 @@ def main():
         name="Cookie Test Check",
     )
 
-    logger.info("Running initial scrape...")
-    run_scrape()
+    # No initial scrape on startup — wait for cron to avoid burst traffic
+    logger.info("Waiting for scheduled cron to trigger first scrape.")
 
     def shutdown(signum, frame):
         logger.info("Shutting down...")

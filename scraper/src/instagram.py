@@ -2,7 +2,8 @@ import logging
 import time
 import random
 from datetime import datetime, timezone
-import requests
+from curl_cffi import requests
+from curl_cffi.requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)
 
@@ -11,25 +12,33 @@ BASE = "https://www.instagram.com"
 
 class InstagramClient:
     def __init__(self, cookies: dict[str, str]):
-        self._session = requests.Session()
+        self._session = requests.Session(impersonate="chrome131")
+
+        # Set all cookies from the browser
+        for name, value in cookies.items():
+            self._session.cookies.set(name, value, domain=".instagram.com")
+
+        # Browser-matching headers (curl_cffi handles most via impersonate,
+        # but we need the Instagram-specific ones)
         self._session.headers.update({
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "X-IG-App-ID": "936619743392459",
             "X-CSRFToken": cookies.get("csrftoken", ""),
             "X-Requested-With": "XMLHttpRequest",
             "Referer": "https://www.instagram.com/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
         })
-        self._session.cookies.set("sessionid", cookies["sessionid"], domain=".instagram.com")
-        self._session.cookies.set("csrftoken", cookies.get("csrftoken", ""), domain=".instagram.com")
-        self._session.cookies.set("ds_user_id", cookies.get("ds_user_id", ""), domain=".instagram.com")
         self._ds_user_id = cookies.get("ds_user_id", "")
         self._username = None
 
     def _get(self, path: str, params: dict | None = None) -> dict:
+        # Small random delay before every request to mimic human browsing
+        time.sleep(random.uniform(1.0, 3.0))
         for attempt in range(3):
             resp = self._session.get(f"{BASE}{path}", params=params)
             if resp.status_code == 429:
-                wait = int(resp.headers.get("Retry-After", 30 * (attempt + 1)))
+                wait = int(resp.headers.get("Retry-After", 60 * (attempt + 1)))
                 logger.warning(f"Rate limited (attempt {attempt + 1}/3), waiting {wait}s...")
                 time.sleep(wait)
                 continue
@@ -43,7 +52,7 @@ class InstagramClient:
         try:
             data = self._get("/api/v1/users/web_profile_info/", {"username": "instagram"})
             return "data" in data and "user" in data["data"]
-        except requests.HTTPError as e:
+        except HTTPError as e:
             if e.response is not None and e.response.status_code == 429:
                 logger.warning("Session validation skipped: rate limited")
                 return None  # Can't tell, don't mark stale
@@ -82,20 +91,17 @@ class InstagramClient:
             if not data.get("next_max_id"):
                 break
             max_id = data["next_max_id"]
-            self.random_delay(1.0, 2.0)
+            self.random_delay(3.0, 8.0)
         return result
 
     def get_user_posts(self, username: str, amount: int = 20) -> list[dict]:
-        user_id = self._resolve_user_id(username)
-        self.random_delay(0.5, 1.5)
-
         posts = []
         max_id = None
         while len(posts) < amount:
             params = {"count": str(min(amount - len(posts), 12))}
             if max_id:
                 params["max_id"] = max_id
-            data = self._get(f"/api/v1/feed/user/{user_id}/username/", params)
+            data = self._get(f"/api/v1/feed/user/{username}/username/", params)
 
             for item in data.get("items", []):
                 media_items = []
@@ -124,7 +130,7 @@ class InstagramClient:
             if not data.get("next_max_id"):
                 break
             max_id = data["next_max_id"]
-            self.random_delay(1.0, 2.0)
+            self.random_delay(3.0, 8.0)
 
         return posts[:amount]
 

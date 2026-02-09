@@ -25,6 +25,9 @@ class Scraper:
             if was_new:
                 new_posts += 1
 
+        # Delay between posts and stories fetch to look more human
+        self.ig.random_delay(5.0, 15.0)
+
         stories = self.ig.get_user_stories(username)
         for story in stories:
             was_new = self._process_post(story, username)
@@ -47,7 +50,7 @@ class Scraper:
                 post_id=post_id,
                 order=item["order"],
             )
-            item["file_path"] = file_path
+            item["file_path"] = file_path or ""
             item["thumbnail_path"] = thumb_path
 
         self.db.insert_post(
@@ -83,7 +86,7 @@ class Scraper:
                 total_posts += posts
                 total_stories += stories
                 logger.info(f"  {username}: {posts} new posts, {stories} new stories")
-                self.ig.random_delay()
+                self.ig.random_delay(15.0, 45.0)
             except Exception as e:
                 logger.error(f"  Error scraping {username}: {e}")
 
@@ -102,7 +105,7 @@ class Scraper:
                 total_posts += posts
                 total_stories += stories
                 logger.info(f"  {username}: {posts} new posts, {stories} new stories")
-                self.ig.random_delay()
+                self.ig.random_delay(15.0, 45.0)
             except Exception as e:
                 logger.error(f"  Error scraping {username}: {e}")
 
@@ -119,4 +122,4 @@ class Scraper:
                 order=0,
             )
             self.db.upsert_account(user["username"], file_path)
-            self.ig.random_delay(0.5, 1.5)
+            self.ig.random_delay(3.0, 8.0)

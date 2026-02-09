@@ -1,4 +1,3 @@
-const COOKIE_NAMES = ["sessionid", "csrftoken", "ds_user_id"];
 const STORAGE_KEY = "igsub_settings";
 
 let foundCookies = {};
@@ -10,24 +9,35 @@ async function loadCookies() {
   const allCookies = await chrome.cookies.getAll({ domain: ".instagram.com" });
   foundCookies = {};
 
-  for (const name of COOKIE_NAMES) {
-    const cookie = allCookies.find((c) => c.name === name);
+  for (const cookie of allCookies) {
+    foundCookies[cookie.name] = cookie.value;
+  }
+
+  const count = Object.keys(foundCookies).length;
+  const hasSession = "sessionid" in foundCookies;
+
+  // Show key cookies
+  const keyCookies = ["sessionid", "csrftoken", "ds_user_id", "mid", "ig_did", "datr", "rur"];
+  for (const name of keyCookies) {
     const row = document.createElement("div");
     row.className = "cookie-row";
-
-    if (cookie) {
-      foundCookies[name] = cookie.value;
-      row.innerHTML = `<span class="name">${name}</span><span class="val found">${cookie.value.slice(0, 24)}...</span>`;
+    if (name in foundCookies) {
+      row.innerHTML = `<span class="name">${name}</span><span class="val found">${foundCookies[name].slice(0, 20)}...</span>`;
     } else {
       row.innerHTML = `<span class="name">${name}</span><span class="val missing">not found</span>`;
     }
     list.appendChild(row);
   }
 
-  const allFound = COOKIE_NAMES.every((n) => n in foundCookies);
-  document.getElementById("sync").disabled = !allFound;
+  // Show total count
+  const countRow = document.createElement("div");
+  countRow.className = "cookie-row";
+  countRow.innerHTML = `<span class="name">total</span><span class="val ${hasSession ? 'found' : 'missing'}">${count} cookies</span>`;
+  list.appendChild(countRow);
 
-  if (!allFound) {
+  document.getElementById("sync").disabled = !hasSession;
+
+  if (!hasSession) {
     setStatus("Log into instagram.com first", "err");
   }
 }
@@ -66,7 +76,8 @@ async function syncCookies() {
       throw new Error(data.error || `HTTP ${res.status}`);
     }
 
-    setStatus("Cookies synced!", "ok");
+    const count = Object.keys(foundCookies).length;
+    setStatus(`${count} cookies synced!`, "ok");
   } catch (e) {
     setStatus(e.message, "err");
   }

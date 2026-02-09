@@ -17,6 +17,7 @@ export function SettingsForm() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
+  const [testLog, setTestLog] = useState("");
 
   useEffect(() => {
     fetch("/api/settings")
@@ -101,12 +102,14 @@ export function SettingsForm() {
                 onClick={async () => {
                   setTesting(true);
                   setMessage("");
+                  setTestLog("");
                   await fetch("/api/cookies/test", { method: "POST" });
-                  // Poll for result (scraper runs the actual test)
+                  // Poll for result + log (scraper runs the actual test)
                   const poll = setInterval(async () => {
                     try {
                       const res = await fetch("/api/cookies/test");
                       const data = await res.json();
+                      if (data.log) setTestLog(data.log);
                       if (data.status === "valid") {
                         clearInterval(poll);
                         setMessage(`Cookies valid — logged in as @${data.username}`);
@@ -122,20 +125,25 @@ export function SettingsForm() {
                       setTesting(false);
                     }
                   }, 2000);
-                  // Timeout after 60s
+                  // Timeout after 5min (rate limit retries can take ~3min)
                   setTimeout(() => {
                     clearInterval(poll);
                     if (testing) {
                       setMessage("Cookie test timed out — scraper may be busy");
                       setTesting(false);
                     }
-                  }, 60000);
+                  }, 300000);
                 }}
               >
                 {testing ? "Testing..." : "Test Cookies"}
               </Button>
             )}
           </div>
+          {testLog && (
+            <pre className="max-h-48 overflow-auto border bg-muted p-2 text-xs text-muted-foreground whitespace-pre-wrap">
+              {testLog}
+            </pre>
+          )}
         </CardContent>
       </Card>
 

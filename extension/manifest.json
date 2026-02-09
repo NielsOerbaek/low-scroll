@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ig-sub Cookie Sync",
-  "version": "1.0",
-  "description": "Sync Instagram cookies to your ig-sub instance",
+  "name": "low-scroll Cookie Sync",
+  "version": "1.2",
+  "description": "Sync Instagram cookies to your low-scroll instance",
   "permissions": ["cookies", "storage"],
   "host_permissions": ["https://*.instagram.com/*"],
   "action": {
