@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MediaCarousel } from "@/components/media-carousel";
@@ -23,9 +26,39 @@ interface PostCardProps {
   };
 }
 
-export function PostCard({ post }: PostCardProps) {
-  const detailUrl = post.type === "story" ? `/story/${post.id}` : `/post/${post.id}`;
+function Caption({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
 
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      setClamped(el.scrollHeight > el.clientHeight);
+    }
+  }, [text]);
+
+  return (
+    <CardContent className="px-3 py-1.5">
+      <p
+        ref={ref}
+        className={`text-sm text-muted-foreground ${expanded ? "" : "line-clamp-3"}`}
+      >
+        {text}
+      </p>
+      {clamped && !expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="text-sm text-foreground/60 hover:text-foreground/80 mt-0.5"
+        >
+          more
+        </button>
+      )}
+    </CardContent>
+  );
+}
+
+export function PostCard({ post }: PostCardProps) {
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-1.5">
@@ -37,12 +70,8 @@ export function PostCard({ post }: PostCardProps) {
           {new Date(post.timestamp).toLocaleDateString()}
         </span>
       </div>
-      <MediaCarousel media={post.media} detailUrl={detailUrl} />
-      {post.caption && (
-        <CardContent className="px-3 py-1.5">
-          <p className="text-sm text-muted-foreground line-clamp-4">{post.caption}</p>
-        </CardContent>
-      )}
+      <MediaCarousel media={post.media} />
+      {post.caption && <Caption text={post.caption} />}
     </Card>
   );
 }

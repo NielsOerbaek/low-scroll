@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import {
   Carousel,
   CarouselContent,
@@ -23,7 +22,6 @@ interface PostMedia {
 
 interface MediaCarouselProps {
   media: PostMedia[];
-  detailUrl?: string;
 }
 
 function AutoplayVideo({ src, className }: { src: string; className?: string }) {
@@ -60,34 +58,25 @@ function AutoplayVideo({ src, className }: { src: string; className?: string }) 
   );
 }
 
-function MediaItem({
-  item,
-  detailUrl,
-}: {
-  item: PostMedia;
-  detailUrl?: string;
-}) {
-  const content =
-    item.media_type === "image" ? (
+function MediaItem({ item }: { item: PostMedia }) {
+  if (item.media_type === "image") {
+    return (
       <img
         src={`/api/media/${item.file_path}`}
         alt=""
         className="w-full"
       />
-    ) : (
-      <AutoplayVideo
-        src={`/api/media/${item.file_path}`}
-        className="w-full"
-      />
     );
-
-  if (detailUrl) {
-    return <Link href={detailUrl}>{content}</Link>;
   }
-  return content;
+  return (
+    <AutoplayVideo
+      src={`/api/media/${item.file_path}`}
+      className="w-full"
+    />
+  );
 }
 
-export function MediaCarousel({ media, detailUrl }: MediaCarouselProps) {
+export function MediaCarousel({ media }: MediaCarouselProps) {
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
@@ -106,7 +95,7 @@ export function MediaCarousel({ media, detailUrl }: MediaCarouselProps) {
 
   // Single media item - no carousel UI
   if (media.length === 1) {
-    return <MediaItem item={media[0]} detailUrl={detailUrl} />;
+    return <MediaItem item={media[0]} />;
   }
 
   return (
@@ -115,15 +104,15 @@ export function MediaCarousel({ media, detailUrl }: MediaCarouselProps) {
         <CarouselContent className="ml-0">
           {media.map((item) => (
             <CarouselItem key={item.id} className="pl-0">
-              <MediaItem item={item} detailUrl={detailUrl} />
+              <MediaItem item={item} />
             </CarouselItem>
           ))}
         </CarouselContent>
         <CarouselPrevious
-          className="left-2 bg-black/40 border-0 text-white hover:bg-black/60 disabled:opacity-0"
+          className="left-2 bg-white/70 border-0 text-black/80 hover:bg-white/90 hover:text-black disabled:opacity-0"
         />
         <CarouselNext
-          className="right-2 bg-black/40 border-0 text-white hover:bg-black/60 disabled:opacity-0"
+          className="right-2 bg-white/70 border-0 text-black/80 hover:bg-white/90 hover:text-black disabled:opacity-0"
         />
       </Carousel>
       {/* Dot indicators */}
