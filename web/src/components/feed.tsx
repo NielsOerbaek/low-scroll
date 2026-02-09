@@ -49,13 +49,13 @@ export function Feed({ account }: FeedProps) {
   }, [loadPosts]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-1 border-b">
+    <div>
+      <div className="flex gap-1 border-b mb-2">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-3 py-2 text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
               tab === t.key
                 ? "border-b-2 border-foreground text-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -65,7 +65,7 @@ export function Feed({ account }: FeedProps) {
           </button>
         ))}
       </div>
-      <div className="space-y-4">
+      <div className="space-y-2">
         {posts.map((post) => (
           <PostCard key={post.id} post={post} />
         ))}
