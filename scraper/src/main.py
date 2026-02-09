@@ -32,6 +32,7 @@ def run_scrape():
     digest = DigestBuilder(
         resend_api_key=config.RESEND_API_KEY,
         base_url=config.BASE_URL,
+        media_path=config.MEDIA_PATH,
     )
 
     if not cookies:
@@ -72,8 +73,8 @@ def run_scrape():
             new_posts = db.get_new_posts_since(run_info["started_at"])
             for post in new_posts:
                 post["media"] = db.get_media_for_post(post["id"])
-            html = digest.build_html(new_posts)
-            digest.send(config.EMAIL_RECIPIENT, html, total_posts + total_stories)
+            html, attachments = digest.build_html(new_posts)
+            digest.send(config.EMAIL_RECIPIENT, html, total_posts + total_stories, attachments=attachments)
             logger.info("Digest email sent.")
 
     except Exception as e:

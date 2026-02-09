@@ -8,6 +8,13 @@ const geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "low-scroll",
   description: "Instagram digest feed",
+  manifest: "/manifest.json",
+  themeColor: "#DD2A7B",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "low-scroll",
+  },
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
@@ -17,6 +24,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js")`,
+          }}
+        />
+      </head>
       <body className={geistMono.className}>
         <header className="border-b">
           <div className="h-[2px] bg-gradient-to-r from-[#FEDA77] via-[#DD2A7B] to-[#515BD4]" />
