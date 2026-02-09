@@ -59,10 +59,8 @@ def run_scrape():
     scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
 
     try:
-        accounts = db.get_all_accounts()
-        if not accounts:
-            logger.info("No accounts found. Syncing following list...")
-            scraper.sync_following()
+        logger.info("Syncing following list...")
+        scraper.sync_following()
 
         total_posts, total_stories = scraper.scrape_all()
         db.finish_scrape_run(run_id, "success", total_posts, total_stories)

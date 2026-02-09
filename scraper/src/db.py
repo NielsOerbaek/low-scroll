@@ -88,6 +88,16 @@ class Database:
         )
         self.conn.commit()
 
+    def delete_accounts_not_in(self, usernames: list[str]):
+        if not usernames:
+            return
+        placeholders = ",".join("?" for _ in usernames)
+        self.execute(
+            f"DELETE FROM accounts WHERE username NOT IN ({placeholders})",
+            usernames,
+        )
+        self.conn.commit()
+
     def get_account(self, username: str) -> dict | None:
         row = self.execute("SELECT * FROM accounts WHERE username=?", (username,)).fetchone()
         return dict(row) if row else None

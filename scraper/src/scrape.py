@@ -113,6 +113,7 @@ class Scraper:
 
     def sync_following(self):
         following = self.ig.get_following()
+        following_usernames = [user["username"] for user in following]
         for user in following:
             profile_pic_url = self.ig.get_user_profile_pic(user["username"])
             file_path = self.downloader.download(
@@ -123,3 +124,4 @@ class Scraper:
             )
             self.db.upsert_account(user["username"], file_path)
             self.ig.random_delay(3.0, 8.0)
+        self.db.delete_accounts_not_in(following_usernames)
