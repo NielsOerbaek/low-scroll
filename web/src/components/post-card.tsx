@@ -39,7 +39,7 @@ function Caption({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <CardContent className="px-3 py-1.5">
+    <CardContent className="px-3 py-0.5">
       <p
         ref={ref}
         className={`text-sm text-muted-foreground ${expanded ? "" : "line-clamp-3"}`}
@@ -60,8 +60,8 @@ function Caption({ text }: { text: string }) {
 
 export function PostCard({ post }: PostCardProps) {
   return (
-    <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1.5">
+    <Card className="overflow-hidden !py-0 !gap-0">
+      <div className="flex items-center gap-2 px-3 py-0.5">
         <Link href={`/account/${post.username}`} className="text-sm font-semibold hover:underline">
           @{post.username}
         </Link>

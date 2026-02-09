@@ -116,7 +116,7 @@ export function MediaCarousel({ media }: MediaCarouselProps) {
         />
       </Carousel>
       {/* Dot indicators */}
-      <div className="flex justify-center gap-1.5 py-2">
+      <div className="flex justify-center gap-1.5 py-1">
         {Array.from({ length: count }).map((_, i) => (
           <button
             key={i}
