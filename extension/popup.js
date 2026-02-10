@@ -96,3 +96,86 @@ chrome.storage.local.get(STORAGE_KEY, (data) => {
 });
 
 loadCookies();
+
+let fbFoundCookies = {};
+
+async function loadFbCookies() {
+  const list = document.getElementById("fb-cookies-list");
+  list.innerHTML = "";
+
+  const allCookies = await chrome.cookies.getAll({ domain: ".facebook.com" });
+  fbFoundCookies = {};
+
+  for (const cookie of allCookies) {
+    fbFoundCookies[cookie.name] = cookie.value;
+  }
+
+  const count = Object.keys(fbFoundCookies).length;
+  const hasCUser = "c_user" in fbFoundCookies;
+
+  const keyCookies = ["c_user", "xs", "fr", "datr", "sb"];
+  for (const name of keyCookies) {
+    const row = document.createElement("div");
+    row.className = "cookie-row";
+    if (name in fbFoundCookies) {
+      row.innerHTML = `<span class="name">${name}</span><span class="val found">${fbFoundCookies[name].slice(0, 20)}...</span>`;
+    } else {
+      row.innerHTML = `<span class="name">${name}</span><span class="val missing">not found</span>`;
+    }
+    list.appendChild(row);
+  }
+
+  const countRow = document.createElement("div");
+  countRow.className = "cookie-row";
+  countRow.innerHTML = `<span class="name">total</span><span class="val ${hasCUser ? 'found' : 'missing'}">${count} cookies</span>`;
+  list.appendChild(countRow);
+
+  document.getElementById("fb-sync").disabled = !hasCUser;
+
+  if (!hasCUser) {
+    setFbStatus("Log into facebook.com first", "err");
+  }
+}
+
+function setFbStatus(msg, type) {
+  const el = document.getElementById("fb-status");
+  el.textContent = msg;
+  el.className = "status " + (type || "");
+}
+
+async function syncFbCookies() {
+  const url = document.getElementById("url").value.replace(/\/$/, "");
+  const password = document.getElementById("password").value;
+
+  if (!url) return setFbStatus("Enter instance URL", "err");
+  if (!password) return setFbStatus("Enter admin password", "err");
+
+  const btn = document.getElementById("fb-sync");
+  btn.disabled = true;
+  btn.textContent = "Syncing...";
+  setFbStatus("");
+
+  try {
+    const res = await fetch(`${url}/api/extension/fb-cookies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, cookies: fbFoundCookies }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    const count = Object.keys(fbFoundCookies).length;
+    setFbStatus(`${count} FB cookies synced!`, "ok");
+  } catch (e) {
+    setFbStatus(e.message, "err");
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Sync FB Cookies";
+}
+
+document.getElementById("fb-sync").addEventListener("click", syncFbCookies);
+loadFbCookies();
