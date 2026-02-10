@@ -23,7 +23,7 @@ def test_build_html_contains_posts(builder):
             "media": [{"thumbnail_path": "user1/post1/0_thumb.jpg", "media_type": "image"}],
         }
     ]
-    html = builder.build_html(posts)
+    html, attachments = builder.build_html(posts)
     assert "Hello world" in html
     assert "user1" in html
     assert "ig.raakode.dk" in html
@@ -38,7 +38,7 @@ def test_build_html_groups_by_account(builder):
         {"id": "p3", "username": "alice", "type": "story", "caption": "",
          "timestamp": "2026-01-01T02:00:00", "media": []},
     ]
-    html = builder.build_html(posts)
+    html, attachments = builder.build_html(posts)
     assert "alice" in html
     assert "bob" in html
 

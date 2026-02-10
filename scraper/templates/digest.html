@@ -79,6 +79,47 @@
         </td></tr>
         {% endfor %}
 
+        <!-- Facebook posts -->
+        {% if fb_grouped %}
+        <tr><td style="padding:4px 24px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="height:3px;margin-bottom:12px;">
+            <tr><td style="background:#1877f2;height:3px;font-size:0;">&nbsp;</td></tr>
+          </table>
+        </td></tr>
+
+        {% for group_id, fb_posts in fb_grouped.items() %}
+        <tr><td style="padding:4px 24px 12px;">
+          <p style="margin:0 0 10px;font-family:'Courier New',Courier,monospace;font-size:14px;font-weight:bold;color:#1877f2;">
+            {{ fb_posts[0].get('group_name', 'Facebook Group') if fb_posts else 'Facebook Group' }}
+          </p>
+
+          {% for post in fb_posts %}
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #dbdbdb;border-radius:8px;margin-bottom:12px;">
+            <tr><td style="padding:12px 14px;">
+              <span style="display:inline-block;font-family:'Courier New',Courier,monospace;font-size:11px;padding:2px 8px;border-radius:4px;background:#e7f3ff;color:#1877f2;font-weight:bold;">facebook</span>
+              <span style="font-family:'Courier New',Courier,monospace;font-size:12px;color:#8e8e8e;margin-left:6px;">{{ post.author_name }}</span>
+
+              {% if post.content %}
+              <p style="margin:8px 0 6px;font-family:'Courier New',Courier,monospace;font-size:13px;color:#262626;line-height:1.4;">{{ post.content[:300] }}{% if post.content|length > 300 %}…{% endif %}</p>
+              {% endif %}
+
+              <p style="margin:6px 0 0;font-family:'Courier New',Courier,monospace;font-size:11px;color:#8e8e8e;">
+                {{ post.timestamp }}
+                {% if post.comment_count %}
+                &nbsp;&middot;&nbsp; {{ post.comment_count }} comment{{ 's' if post.comment_count != 1 else '' }}
+                {% endif %}
+                {% if post.permalink %}
+                &nbsp;&middot;&nbsp;
+                <a href="{{ post.permalink }}" style="color:#1877f2;text-decoration:none;">View on Facebook &rarr;</a>
+                {% endif %}
+              </p>
+            </td></tr>
+          </table>
+          {% endfor %}
+        </td></tr>
+        {% endfor %}
+        {% endif %}
+
         <!-- Footer -->
         <tr><td style="padding:16px 24px;border-top:1px solid #eee;">
           <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:11px;color:#8e8e8e;">

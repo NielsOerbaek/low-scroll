@@ -29,7 +29,7 @@ class DigestBuilder:
         with open(logo_path, "rb") as f:
             return base64.b64encode(f.read()).decode()
 
-    def build_html(self, posts: list[dict]) -> tuple[str, list[dict]]:
+    def build_html(self, posts: list[dict], fb_posts: list[dict] | None = None) -> tuple[str, list[dict]]:
         grouped = defaultdict(list)
         post_count = 0
         story_count = 0
@@ -72,6 +72,14 @@ class DigestBuilder:
 
         account_list = sorted(grouped.keys())
 
+        fb_grouped = {}
+        fb_count = 0
+        if fb_posts:
+            for p in fb_posts:
+                group_id = p.get("group_id", "unknown")
+                fb_grouped.setdefault(group_id, []).append(p)
+                fb_count += 1
+
         template = self._env.get_template("digest.html")
         html = template.render(
             grouped_posts={u: grouped[u] for u in account_list},
@@ -80,6 +88,8 @@ class DigestBuilder:
             account_count=len(grouped),
             account_list=account_list,
             base_url=self.base_url,
+            fb_grouped=fb_grouped,
+            fb_count=fb_count,
         )
         return html, attachments
 
@@ -87,7 +97,7 @@ class DigestBuilder:
         payload = {
             "from": self.from_email,
             "to": [to_email],
-            "subject": f"Instagram Digest: {post_count} new item{'s' if post_count != 1 else ''}",
+            "subject": f"low-scroll digest: {post_count} new item{'s' if post_count != 1 else ''}",
             "html": html,
         }
         if attachments:
