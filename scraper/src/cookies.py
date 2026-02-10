@@ -49,3 +49,21 @@ class CookieManager:
 
     def is_stale(self) -> bool:
         return self.db.get_config("ig_cookies_stale") == "true"
+
+    def store_fb_cookies(self, cookies: dict[str, str]):
+        encrypted = self._encrypt(json.dumps(cookies))
+        self.db.set_config("fb_cookies", encrypted)
+        self.db.set_config("fb_cookies_stale", "false")
+
+    def get_fb_cookies(self) -> dict[str, str] | None:
+        encrypted = self.db.get_config("fb_cookies")
+        if not encrypted:
+            return None
+        plaintext = self._decrypt(encrypted)
+        return json.loads(plaintext)
+
+    def mark_fb_stale(self):
+        self.db.set_config("fb_cookies_stale", "true")
+
+    def is_fb_stale(self) -> bool:
+        return self.db.get_config("fb_cookies_stale") == "true"
