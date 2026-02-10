@@ -152,3 +152,150 @@ def test_manual_run_log(db):
     assert "Starting scrape..." in log
     assert "Scraped user1: 3 posts" in log
     assert log.count("\n") == 2
+
+
+def test_initialize_creates_fb_tables(db):
+    tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    table_names = {row["name"] for row in tables}
+    assert "fb_groups" in table_names
+    assert "fb_posts" in table_names
+    assert "fb_comments" in table_names
+
+
+def test_upsert_fb_group(db):
+    db.upsert_fb_group("123456", "Test Group", "https://facebook.com/groups/123456")
+    group = db.get_fb_group("123456")
+    assert group["name"] == "Test Group"
+    assert group["url"] == "https://facebook.com/groups/123456"
+
+
+def test_get_all_fb_groups(db):
+    db.upsert_fb_group("111", "Group A", "https://facebook.com/groups/111")
+    db.upsert_fb_group("222", "Group B", "https://facebook.com/groups/222")
+    groups = db.get_all_fb_groups()
+    assert len(groups) == 2
+
+
+def test_delete_fb_group(db):
+    db.upsert_fb_group("111", "Group A", "https://facebook.com/groups/111")
+    db.delete_fb_group("111")
+    assert db.get_fb_group("111") is None
+
+
+def test_insert_fb_post(db):
+    db.upsert_fb_group("123", "Test Group", "https://facebook.com/groups/123")
+    was_new = db.insert_fb_post(
+        id="fb_post_1",
+        group_id="123",
+        author_name="John Doe",
+        content="Hello from Facebook!",
+        timestamp="2026-01-15T10:00:00",
+        permalink="https://facebook.com/groups/123/posts/456",
+        comment_count=5,
+    )
+    assert was_new is True
+    post = db.get_fb_post("fb_post_1")
+    assert post["content"] == "Hello from Facebook!"
+    assert post["comment_count"] == 5
+
+
+def test_insert_fb_post_duplicate(db):
+    db.upsert_fb_group("123", "Test Group", "https://facebook.com/groups/123")
+    db.insert_fb_post(
+        id="fb_post_1", group_id="123", author_name="John",
+        content="Hello", timestamp="2026-01-15T10:00:00",
+        permalink="https://facebook.com/groups/123/posts/456", comment_count=0,
+    )
+    was_new = db.insert_fb_post(
+        id="fb_post_1", group_id="123", author_name="John",
+        content="Hello", timestamp="2026-01-15T10:00:00",
+        permalink="https://facebook.com/groups/123/posts/456", comment_count=0,
+    )
+    assert was_new is False
+
+
+def test_insert_fb_comment(db):
+    db.upsert_fb_group("123", "Test Group", "https://facebook.com/groups/123")
+    db.insert_fb_post(
+        id="fb_post_1", group_id="123", author_name="John",
+        content="Hello", timestamp="2026-01-15T10:00:00",
+        permalink="", comment_count=1,
+    )
+    db.insert_fb_comment("fb_post_1", "Jane", "Great post!", "2026-01-15T11:00:00", 0)
+    comments = db.get_comments_for_post("fb_post_1")
+    assert len(comments) == 1
+    assert comments[0]["author_name"] == "Jane"
+
+
+def test_get_unified_feed(db):
+    db.upsert_account("iguser", None)
+    db.insert_post(
+        id="ig_1", username="iguser", post_type="post",
+        caption="IG post", timestamp="2026-01-15T12:00:00", permalink="",
+    )
+    db.upsert_fb_group("123", "Test Group", "https://facebook.com/groups/123")
+    db.insert_fb_post(
+        id="fb_1", group_id="123", author_name="John",
+        content="FB post", timestamp="2026-01-15T14:00:00",
+        permalink="", comment_count=0,
+    )
+    feed = db.get_unified_feed(limit=10, offset=0)
+    assert len(feed) == 2
+    assert feed[0]["platform"] == "facebook"
+    assert feed[1]["platform"] == "instagram"
+
+
+def test_get_unified_feed_filter_platform(db):
+    db.upsert_account("iguser", None)
+    db.insert_post(
+        id="ig_1", username="iguser", post_type="post",
+        caption="IG post", timestamp="2026-01-15T12:00:00", permalink="",
+    )
+    db.upsert_fb_group("123", "Group", "https://facebook.com/groups/123")
+    db.insert_fb_post(
+        id="fb_1", group_id="123", author_name="John",
+        content="FB post", timestamp="2026-01-15T14:00:00",
+        permalink="", comment_count=0,
+    )
+    fb_only = db.get_unified_feed(limit=10, offset=0, platform="facebook")
+    assert len(fb_only) == 1
+    assert fb_only[0]["platform"] == "facebook"
+    ig_only = db.get_unified_feed(limit=10, offset=0, platform="instagram")
+    assert len(ig_only) == 1
+    assert ig_only[0]["platform"] == "instagram"
+
+
+def test_get_unified_feed_filter_type(db):
+    db.upsert_account("iguser", None)
+    db.insert_post(
+        id="ig_1", username="iguser", post_type="story",
+        caption="", timestamp="2026-01-15T12:00:00", permalink="",
+    )
+    db.upsert_fb_group("123", "Group", "https://facebook.com/groups/123")
+    db.insert_fb_post(
+        id="fb_1", group_id="123", author_name="John",
+        content="FB post", timestamp="2026-01-15T14:00:00",
+        permalink="", comment_count=0,
+    )
+    stories = db.get_unified_feed(limit=10, offset=0, type="story")
+    assert len(stories) == 1
+    assert stories[0]["id"] == "ig_1"
+
+
+def test_get_new_fb_posts_since(db):
+    db.upsert_fb_group("123", "Group", "https://facebook.com/groups/123")
+    db.insert_fb_post(
+        id="fb_1", group_id="123", author_name="John",
+        content="FB post", timestamp="2026-01-15T14:00:00",
+        permalink="", comment_count=0,
+    )
+    posts = db.get_new_fb_posts_since("2000-01-01")
+    assert len(posts) == 1
+    assert posts[0]["id"] == "fb_1"
+
+
+def test_update_fb_group_last_checked(db):
+    db.upsert_fb_group("123", "Group", "https://facebook.com/groups/123")
+    db.update_fb_group_last_checked("123")
+    group = db.get_fb_group("123")
+    assert group["last_checked_at"] is not None

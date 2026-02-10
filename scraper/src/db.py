@@ -88,6 +88,36 @@ class Database:
         if "error" not in sr_cols:
             self.conn.execute("ALTER TABLE scrape_runs ADD COLUMN error TEXT")
 
+        self.conn.executescript("""
+            CREATE TABLE IF NOT EXISTS fb_groups (
+                group_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                url TEXT NOT NULL,
+                last_checked_at DATETIME,
+                added_at DATETIME DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS fb_posts (
+                id TEXT PRIMARY KEY,
+                group_id TEXT NOT NULL REFERENCES fb_groups(group_id),
+                author_name TEXT,
+                content TEXT,
+                timestamp DATETIME,
+                permalink TEXT,
+                comment_count INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS fb_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id TEXT NOT NULL REFERENCES fb_posts(id),
+                author_name TEXT,
+                content TEXT,
+                timestamp DATETIME,
+                "order" INTEGER DEFAULT 0
+            );
+        """)
+
     def upsert_account(self, username: str, profile_pic_path: str | None):
         self.execute(
             """INSERT INTO accounts (username, profile_pic_path)
@@ -278,6 +308,124 @@ class Database:
                AND started_at < datetime('now', '-1 hour')"""
         )
         self.conn.commit()
+
+    # ── Facebook Groups ────────────────────────────────────────────
+
+    def upsert_fb_group(self, group_id: str, name: str, url: str):
+        self.execute(
+            """INSERT INTO fb_groups (group_id, name, url)
+               VALUES (?, ?, ?)
+               ON CONFLICT(group_id) DO UPDATE SET name=excluded.name, url=excluded.url""",
+            (group_id, name, url),
+        )
+        self.conn.commit()
+
+    def get_fb_group(self, group_id: str) -> dict | None:
+        row = self.execute("SELECT * FROM fb_groups WHERE group_id=?", (group_id,)).fetchone()
+        return dict(row) if row else None
+
+    def get_all_fb_groups(self) -> list[dict]:
+        rows = self.execute("SELECT * FROM fb_groups ORDER BY name").fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_fb_group(self, group_id: str):
+        self.execute("DELETE FROM fb_comments WHERE post_id IN (SELECT id FROM fb_posts WHERE group_id=?)", (group_id,))
+        self.execute("DELETE FROM fb_posts WHERE group_id=?", (group_id,))
+        self.execute("DELETE FROM fb_groups WHERE group_id=?", (group_id,))
+        self.conn.commit()
+
+    def update_fb_group_last_checked(self, group_id: str):
+        self.execute(
+            "UPDATE fb_groups SET last_checked_at=datetime('now') WHERE group_id=?",
+            (group_id,),
+        )
+        self.conn.commit()
+
+    def insert_fb_post(self, id: str, group_id: str, author_name: str,
+                       content: str, timestamp: str, permalink: str,
+                       comment_count: int = 0) -> bool:
+        try:
+            self.execute(
+                """INSERT INTO fb_posts (id, group_id, author_name, content, timestamp, permalink, comment_count)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (id, group_id, author_name, content, timestamp, permalink, comment_count),
+            )
+            self.conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+    def get_fb_post(self, post_id: str) -> dict | None:
+        row = self.execute("SELECT * FROM fb_posts WHERE id=?", (post_id,)).fetchone()
+        return dict(row) if row else None
+
+    def insert_fb_comment(self, post_id: str, author_name: str, content: str,
+                          timestamp: str, order: int = 0):
+        self.execute(
+            """INSERT INTO fb_comments (post_id, author_name, content, timestamp, "order")
+               VALUES (?, ?, ?, ?, ?)""",
+            (post_id, author_name, content, timestamp, order),
+        )
+        self.conn.commit()
+
+    def get_comments_for_post(self, post_id: str) -> list[dict]:
+        rows = self.execute(
+            'SELECT * FROM fb_comments WHERE post_id=? ORDER BY "order"', (post_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_unified_feed(self, limit: int = 20, offset: int = 0,
+                         account: str | None = None, group_id: str | None = None,
+                         type: str | None = None, platform: str | None = None) -> list[dict]:
+        parts = []
+        params = []
+
+        if platform != "facebook":
+            ig_where = []
+            if account:
+                ig_where.append("username = ?")
+                params.append(account)
+            if type:
+                ig_where.append("type = ?")
+                params.append(type)
+            ig_clause = (" WHERE " + " AND ".join(ig_where)) if ig_where else ""
+            parts.append(
+                f"""SELECT id, username AS source_name, type, caption AS content,
+                       timestamp, permalink, 'instagram' AS platform,
+                       NULL AS comment_count
+                FROM posts{ig_clause}"""
+            )
+
+        if platform != "instagram":
+            fb_where = []
+            if group_id:
+                fb_where.append("fp.group_id = ?")
+                params.append(group_id)
+            if type:
+                fb_where.append("'fb_post' = ?")
+                params.append(type)
+            fb_clause = (" WHERE " + " AND ".join(fb_where)) if fb_where else ""
+            parts.append(
+                f"""SELECT fp.id, g.name AS source_name, 'fb_post' AS type,
+                       fp.content, fp.timestamp, fp.permalink,
+                       'facebook' AS platform, fp.comment_count
+                FROM fb_posts fp JOIN fb_groups g ON fp.group_id = g.group_id{fb_clause}"""
+            )
+
+        if not parts:
+            return []
+
+        sql = " UNION ALL ".join(parts) + " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        rows = self.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_new_fb_posts_since(self, since: str) -> list[dict]:
+        rows = self.execute(
+            "SELECT * FROM fb_posts WHERE created_at > ? ORDER BY timestamp DESC",
+            (since,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def close(self):
         if self._conn:
