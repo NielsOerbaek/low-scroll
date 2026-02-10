@@ -7,12 +7,16 @@ export async function GET() {
     const hasCookies = getConfig("ig_cookies") !== null;
     const cronSchedule = getConfig("cron_schedule") || "0 8 * * *";
     const emailRecipient = getConfig("email_recipient") || process.env.EMAIL_RECIPIENT || "";
+    const hasFbCookies = getConfig("fb_cookies") !== null;
+    const fbCookiesStale = getConfig("fb_cookies_stale") === "true";
 
     return NextResponse.json({
       hasCookies,
       cookiesStale: cookieStatus === "true",
       cronSchedule,
       emailRecipient,
+      hasFbCookies,
+      fbCookiesStale,
     });
   } catch {
     return NextResponse.json({
@@ -20,6 +24,8 @@ export async function GET() {
       cookiesStale: false,
       cronSchedule: "0 8 * * *",
       emailRecipient: process.env.EMAIL_RECIPIENT || "",
+      hasFbCookies: false,
+      fbCookiesStale: false,
     });
   }
 }
