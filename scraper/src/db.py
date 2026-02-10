@@ -58,7 +58,9 @@ class Database:
                 finished_at DATETIME,
                 status TEXT,
                 new_posts_count INTEGER DEFAULT 0,
-                new_stories_count INTEGER DEFAULT 0
+                new_stories_count INTEGER DEFAULT 0,
+                error TEXT,
+                log TEXT DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS manual_runs (
@@ -79,6 +81,13 @@ class Database:
         if "log" not in cols:
             self.conn.execute("ALTER TABLE manual_runs ADD COLUMN log TEXT DEFAULT ''")
 
+        # Migration: add log/error columns to scrape_runs if missing
+        sr_cols = {row[1] for row in self.conn.execute("PRAGMA table_info(scrape_runs)").fetchall()}
+        if "log" not in sr_cols:
+            self.conn.execute("ALTER TABLE scrape_runs ADD COLUMN log TEXT DEFAULT ''")
+        if "error" not in sr_cols:
+            self.conn.execute("ALTER TABLE scrape_runs ADD COLUMN error TEXT")
+
     def upsert_account(self, username: str, profile_pic_path: str | None):
         self.execute(
             """INSERT INTO accounts (username, profile_pic_path)
@@ -93,7 +102,8 @@ class Database:
             return
         placeholders = ",".join("?" for _ in usernames)
         self.execute(
-            f"DELETE FROM accounts WHERE username NOT IN ({placeholders})",
+            f"""DELETE FROM accounts WHERE username NOT IN ({placeholders})
+                AND username NOT IN (SELECT DISTINCT username FROM posts)""",
             usernames,
         )
         self.conn.commit()
@@ -183,18 +193,33 @@ class Database:
         return cursor.lastrowid
 
     def finish_scrape_run(self, run_id: int, status: str,
-                          new_posts: int = 0, new_stories: int = 0):
+                          new_posts: int = 0, new_stories: int = 0,
+                          error: str | None = None):
         self.execute(
             """UPDATE scrape_runs
-               SET finished_at=datetime('now'), status=?, new_posts_count=?, new_stories_count=?
+               SET finished_at=datetime('now'), status=?, new_posts_count=?, new_stories_count=?,
+                   error=?
                WHERE id=?""",
-            (status, new_posts, new_stories, run_id),
+            (status, new_posts, new_stories, error, run_id),
         )
         self.conn.commit()
 
     def get_scrape_run(self, run_id: int) -> dict | None:
         row = self.execute("SELECT * FROM scrape_runs WHERE id=?", (run_id,)).fetchone()
         return dict(row) if row else None
+
+    def append_scrape_run_log(self, run_id: int, line: str):
+        self.execute(
+            "UPDATE scrape_runs SET log = log || ? WHERE id=?",
+            (line + "\n", run_id),
+        )
+        self.conn.commit()
+
+    def get_recent_scrape_runs(self, limit: int = 20) -> list[dict]:
+        rows = self.execute(
+            "SELECT * FROM scrape_runs ORDER BY started_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def insert_manual_run(self, since_date: str) -> int:
         cursor = self.execute(

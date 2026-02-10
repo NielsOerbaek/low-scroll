@@ -124,3 +124,25 @@ export function getManualRunLog(runId: number): string {
   const row = getDb().prepare("SELECT log FROM manual_runs WHERE id = ?").get(runId) as { log: string } | undefined;
   return row?.log ?? "";
 }
+
+export interface ScrapeRun {
+  id: number;
+  started_at: string;
+  finished_at: string | null;
+  status: string | null;
+  new_posts_count: number;
+  new_stories_count: number;
+  error: string | null;
+  log: string;
+}
+
+export function getRecentScrapeRuns(limit = 20): ScrapeRun[] {
+  return getDb()
+    .prepare("SELECT * FROM scrape_runs ORDER BY started_at DESC LIMIT ?")
+    .all(limit) as ScrapeRun[];
+}
+
+export function getScrapeRunLog(runId: number): string {
+  const row = getDb().prepare("SELECT log FROM scrape_runs WHERE id = ?").get(runId) as { log: string } | undefined;
+  return row?.log ?? "";
+}

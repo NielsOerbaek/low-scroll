@@ -35,11 +35,16 @@ class InstagramClient:
     def _get(self, path: str, params: dict | None = None) -> dict:
         # Small random delay before every request to mimic human browsing
         time.sleep(random.uniform(1.0, 3.0))
-        for attempt in range(3):
+        for attempt in range(4):
             resp = self._session.get(f"{BASE}{path}", params=params)
             if resp.status_code == 429:
                 wait = int(resp.headers.get("Retry-After", 60 * (attempt + 1)))
-                logger.warning(f"Rate limited (attempt {attempt + 1}/3), waiting {wait}s...")
+                logger.warning(f"Rate limited (attempt {attempt + 1}/4), waiting {wait}s...")
+                time.sleep(wait)
+                continue
+            if resp.status_code >= 500:
+                wait = 5 * (attempt + 1) + random.uniform(0, 5)
+                logger.warning(f"Server error {resp.status_code} on {path} (attempt {attempt + 1}/4), retrying in {wait:.0f}s...")
                 time.sleep(wait)
                 continue
             resp.raise_for_status()

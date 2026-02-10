@@ -26,39 +26,48 @@ def run_scrape():
     db = Database(config.DATABASE_PATH)
     db.initialize()
 
-    cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
-    cookies = cookie_mgr.get_cookies()
-
-    digest = DigestBuilder(
-        resend_api_key=config.RESEND_API_KEY,
-        base_url=config.BASE_URL,
-        media_path=config.MEDIA_PATH,
-    )
-
-    if not cookies:
-        logger.warning("No cookies configured. Skipping.")
-        return
-
-    ig = InstagramClient(cookies)
-    session_ok = ig.validate_session()
-    if session_ok is None:
-        logger.warning("Rate limited during validation, skipping this run.")
-        return
-    if not session_ok:
-        logger.warning("Cookies are stale!")
-        cookie_mgr.mark_stale()
-        if config.EMAIL_RECIPIENT:
-            try:
-                digest.send_stale_cookies_alert(config.EMAIL_RECIPIENT)
-            except Exception as e:
-                logger.error(f"Failed to send stale cookies alert: {e}")
-        return
-
     run_id = db.insert_scrape_run()
-    downloader = MediaDownloader(config.MEDIA_PATH)
-    scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
+
+    # Attach DB log handler to capture all logs for this run
+    db_handler = DbLogHandler(lambda line: db.append_scrape_run_log(run_id, line))
+    root_logger = logging.getLogger()
+    root_logger.addHandler(db_handler)
 
     try:
+        cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+        cookies = cookie_mgr.get_cookies()
+
+        digest = DigestBuilder(
+            resend_api_key=config.RESEND_API_KEY,
+            base_url=config.BASE_URL,
+            media_path=config.MEDIA_PATH,
+        )
+
+        if not cookies:
+            logger.warning("No cookies configured. Skipping.")
+            db.finish_scrape_run(run_id, "error", error="No cookies configured")
+            return
+
+        ig = InstagramClient(cookies)
+        session_ok = ig.validate_session()
+        if session_ok is None:
+            logger.warning("Rate limited during validation, skipping this run.")
+            db.finish_scrape_run(run_id, "error", error="Rate limited during validation")
+            return
+        if not session_ok:
+            logger.warning("Cookies are stale!")
+            cookie_mgr.mark_stale()
+            db.finish_scrape_run(run_id, "error", error="Cookies are stale")
+            if config.EMAIL_RECIPIENT:
+                try:
+                    digest.send_stale_cookies_alert(config.EMAIL_RECIPIENT)
+                except Exception as e:
+                    logger.error(f"Failed to send stale cookies alert: {e}")
+            return
+
+        downloader = MediaDownloader(config.MEDIA_PATH)
+        scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
+
         logger.info("Syncing following list...")
         scraper.sync_following()
 
@@ -77,22 +86,22 @@ def run_scrape():
 
     except Exception as e:
         logger.error(f"Scrape failed: {e}")
-        db.finish_scrape_run(run_id, "error")
-
-    db.close()
+        db.finish_scrape_run(run_id, "error", error=str(e))
+    finally:
+        root_logger.removeHandler(db_handler)
+        db.close()
 
 
 class DbLogHandler(logging.Handler):
-    """Logging handler that appends log lines to a manual_run's log column."""
-    def __init__(self, db: Database, run_id: int):
+    """Logging handler that appends log lines to a database log column."""
+    def __init__(self, log_fn):
         super().__init__()
-        self._db = db
-        self._run_id = run_id
+        self._log_fn = log_fn
         self.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 
     def emit(self, record):
         try:
-            self._db.append_manual_run_log(self._run_id, self.format(record))
+            self._log_fn(self.format(record))
         except Exception:
             pass
 
@@ -196,7 +205,7 @@ def check_manual_runs():
     db.start_manual_run(run_id)
 
     # Attach DB log handler for this run
-    db_handler = DbLogHandler(db, run_id)
+    db_handler = DbLogHandler(lambda line: db.append_manual_run_log(run_id, line))
     root_logger = logging.getLogger()
     root_logger.addHandler(db_handler)
 
@@ -233,6 +242,28 @@ def check_manual_runs():
     finally:
         root_logger.removeHandler(db_handler)
         db.close()
+
+
+def check_trigger_scrape():
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    status = db.get_config("trigger_scrape")
+    if status != "pending":
+        db.close()
+        return
+
+    logger.info("Manual scrape trigger detected, starting scrape...")
+    db.set_config("trigger_scrape", "running")
+    db.close()
+
+    run_scrape()
+
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+    db.set_config("trigger_scrape", "done")
+    db.close()
 
 
 def main():
@@ -273,6 +304,12 @@ def main():
         IntervalTrigger(seconds=10),
         id="cookie_test_check",
         name="Cookie Test Check",
+    )
+    scheduler.add_job(
+        check_trigger_scrape,
+        IntervalTrigger(seconds=10),
+        id="trigger_scrape_check",
+        name="Trigger Scrape Check",
     )
 
     # No initial scrape on startup — wait for cron to avoid burst traffic
