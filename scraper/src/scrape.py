@@ -2,15 +2,18 @@ import logging
 from src.db import Database
 from src.instagram import InstagramClient
 from src.downloader import MediaDownloader
+from src.facebook import FacebookClient
 
 logger = logging.getLogger(__name__)
 
 
 class Scraper:
-    def __init__(self, db: Database, ig_client: InstagramClient, downloader: MediaDownloader):
+    def __init__(self, db: Database, ig_client: InstagramClient, downloader: MediaDownloader,
+                 fb_client=None):
         self.db = db
         self.ig = ig_client
         self.downloader = downloader
+        self.fb = fb_client
 
     def scrape_account(self, username: str, since_date: str | None = None) -> tuple[int, int]:
         new_posts = 0
@@ -125,3 +128,53 @@ class Scraper:
             self.db.upsert_account(user["username"], file_path)
             self.ig.random_delay(3.0, 8.0)
         self.db.delete_accounts_not_in(following_usernames)
+
+    def scrape_fb_group(self, group_id: str) -> int:
+        if not self.fb:
+            return 0
+        posts = self.fb.get_group_posts(group_id)
+        new_count = 0
+        for post in posts:
+            was_new = self.db.insert_fb_post(
+                id=post["id"],
+                group_id=group_id,
+                author_name=post["author_name"],
+                content=post["content"],
+                timestamp=post["timestamp"],
+                permalink=post["permalink"],
+                comment_count=post["comment_count"],
+            )
+            if was_new and post["comment_count"] > 0:
+                story_fbid = post["id"].removeprefix("fb_")
+                try:
+                    comments = self.fb.get_post_comments(group_id, story_fbid, limit=3)
+                    for comment in comments:
+                        self.db.insert_fb_comment(
+                            post_id=post["id"],
+                            author_name=comment["author_name"],
+                            content=comment["content"],
+                            timestamp=comment["timestamp"],
+                            order=comment["order"],
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to fetch comments for {post['id']}: {e}")
+            if was_new:
+                new_count += 1
+        self.db.update_fb_group_last_checked(group_id)
+        return new_count
+
+    def scrape_all_fb_groups(self) -> int:
+        if not self.fb:
+            return 0
+        groups = self.db.get_all_fb_groups()
+        total = 0
+        for group in groups:
+            try:
+                logger.info(f"Scraping FB group: {group['name']}...")
+                count = self.scrape_fb_group(group["group_id"])
+                total += count
+                logger.info(f"  {group['name']}: {count} new posts")
+                self.fb.random_delay(15.0, 45.0)
+            except Exception as e:
+                logger.error(f"  Error scraping FB group {group['name']}: {e}")
+        return total

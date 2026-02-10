@@ -75,13 +75,34 @@ def run_scrape():
         db.finish_scrape_run(run_id, "success", total_posts, total_stories)
         logger.info(f"Scrape complete: {total_posts} posts, {total_stories} stories")
 
-        if (total_posts + total_stories) > 0 and config.EMAIL_RECIPIENT:
+        # --- Facebook scraping ---
+        new_fb_posts = 0
+        fb_cookie_mgr_cookies = cookie_mgr.get_fb_cookies()
+        if fb_cookie_mgr_cookies:
+            from src.facebook import FacebookClient
+            fb = FacebookClient(fb_cookie_mgr_cookies)
+            fb_session_ok = fb.validate_session()
+            if fb_session_ok is None:
+                logger.warning("FB rate limited during validation, skipping FB this run.")
+            elif not fb_session_ok:
+                logger.warning("FB cookies are stale!")
+                cookie_mgr.mark_fb_stale()
+            else:
+                scraper.fb = fb
+                new_fb_posts = scraper.scrape_all_fb_groups()
+                logger.info(f"FB scrape complete: {new_fb_posts} new posts")
+        else:
+            logger.info("No FB cookies configured, skipping Facebook scraping.")
+
+        total_new = total_posts + total_stories + new_fb_posts
+        if total_new > 0 and config.EMAIL_RECIPIENT:
             run_info = db.get_scrape_run(run_id)
             new_posts = db.get_new_posts_since(run_info["started_at"])
             for post in new_posts:
                 post["media"] = db.get_media_for_post(post["id"])
-            html, attachments = digest.build_html(new_posts)
-            digest.send(config.EMAIL_RECIPIENT, html, total_posts + total_stories, attachments=attachments)
+            new_fb = db.get_new_fb_posts_since(run_info["started_at"])
+            html, attachments = digest.build_html(new_posts, new_fb)
+            digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments)
             logger.info("Digest email sent.")
 
     except Exception as e:
@@ -185,6 +206,72 @@ def check_cookie_test():
     else:
         log("RESULT: Cookies are stale or invalid. Re-sync from browser.")
         db.set_config("cookie_test", "error:Cookies are stale or invalid")
+
+    db.close()
+
+
+def check_fb_cookie_test():
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    status = db.get_config("fb_cookie_test")
+    if status != "pending":
+        db.close()
+        return
+
+    logger.info("FB cookie test requested, validating session...")
+    db.set_config("fb_cookie_test", "running")
+    log_lines = []
+
+    def log(msg):
+        log_lines.append(msg)
+        db.set_config("fb_cookie_test_log", "\n".join(log_lines))
+        logger.info(f"[fb_cookie_test] {msg}")
+
+    log("Loading FB cookies from database...")
+    cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+    cookies = cookie_mgr.get_fb_cookies()
+
+    if not cookies:
+        log("ERROR: No FB cookies configured.")
+        db.set_config("fb_cookie_test", "error:No FB cookies configured")
+        db.close()
+        return
+
+    has_c_user = bool(cookies.get("c_user"))
+    has_xs = bool(cookies.get("xs"))
+    log(f"Found cookies: c_user={'yes' if has_c_user else 'MISSING'}, xs={'yes' if has_xs else 'MISSING'}")
+
+    if not has_c_user or not has_xs:
+        log("ERROR: c_user and xs cookies are required.")
+        db.set_config("fb_cookie_test", "error:Required cookies missing (c_user, xs)")
+        db.close()
+        return
+
+    log("Creating Facebook client...")
+    from src.facebook import FacebookClient
+    fb = FacebookClient(cookies)
+
+    log("Testing session against mbasic.facebook.com ...")
+
+    try:
+        session_ok = fb.validate_session()
+    except Exception as e:
+        log(f"ERROR: {e}")
+        db.set_config("fb_cookie_test", f"error:{e}")
+        db.close()
+        return
+
+    if session_ok is None:
+        log("RESULT: Rate limited by Facebook. Try again later.")
+        db.set_config("fb_cookie_test", "error:Rate limited, try again later")
+    elif session_ok:
+        log(f"RESULT: FB cookies valid — logged in as user {cookies.get('c_user', 'unknown')}")
+        db.set_config("fb_cookie_test", f"valid:{cookies.get('c_user', 'unknown')}")
+    else:
+        log("RESULT: FB cookies are stale or invalid. Re-sync from browser.")
+        db.set_config("fb_cookie_test", "error:FB cookies are stale or invalid")
 
     db.close()
 
@@ -304,6 +391,12 @@ def main():
         IntervalTrigger(seconds=10),
         id="cookie_test_check",
         name="Cookie Test Check",
+    )
+    scheduler.add_job(
+        check_fb_cookie_test,
+        IntervalTrigger(seconds=10),
+        id="fb_cookie_test_check",
+        name="FB Cookie Test Check",
     )
     scheduler.add_job(
         check_trigger_scrape,
