@@ -2,14 +2,10 @@ import Database from "better-sqlite3";
 
 const DATABASE_PATH = process.env.DATABASE_PATH || "/data/db/ig.db";
 
-let _db: Database.Database | null = null;
-
 function getDb(): Database.Database {
-  if (!_db) {
-    _db = new Database(DATABASE_PATH, { readonly: true });
-    _db.pragma("journal_mode = WAL");
-  }
-  return _db;
+  const db = new Database(DATABASE_PATH, { readonly: true });
+  db.pragma("journal_mode = WAL");
+  return db;
 }
 
 function getWritableDb(): Database.Database {
@@ -91,11 +87,6 @@ export function setConfig(key: string, value: string): void {
     key,
     value
   );
-  // Invalidate cached read-only connection so next getConfig sees the write
-  if (_db) {
-    _db.close();
-    _db = null;
-  }
   db.close();
 }
 
