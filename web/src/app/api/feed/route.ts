@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFeed, getMediaForPost } from "@/lib/db";
+import { getUnifiedFeed, getMediaForPost, getCommentsForPost } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -7,13 +7,18 @@ export async function GET(request: NextRequest) {
   const offset = Math.max(0, parseInt(searchParams.get("offset") || "0") || 0);
   const account = searchParams.get("account") || undefined;
   const type = searchParams.get("type") || undefined;
+  const platform = searchParams.get("platform") || undefined;
+  const groupId = searchParams.get("groupId") || undefined;
 
   try {
-    const posts = getFeed(limit, offset, account, type);
-    const enriched = posts.map((post) => ({
-      ...post,
-      media: getMediaForPost(post.id),
-    }));
+    const posts = getUnifiedFeed(limit, offset, account, type, platform, groupId);
+    const enriched = posts.map((post) => {
+      if (post.platform === "instagram") {
+        return { ...post, media: getMediaForPost(post.id) };
+      }
+      // FB posts: attach comments
+      return { ...post, comments: getCommentsForPost(post.id) };
+    });
 
     return NextResponse.json({ posts: enriched, hasMore: posts.length === limit });
   } catch {

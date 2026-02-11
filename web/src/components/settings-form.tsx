@@ -18,6 +18,11 @@ export function SettingsForm() {
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
   const [testLog, setTestLog] = useState("");
+  const [fbTesting, setFbTesting] = useState(false);
+  const [fbTestLog, setFbTestLog] = useState("");
+  const [fbMessage, setFbMessage] = useState("");
+  const [fbGroups, setFbGroups] = useState<any[]>([]);
+  const [newGroupUrl, setNewGroupUrl] = useState("");
 
   useEffect(() => {
     fetch("/api/settings")
@@ -27,7 +32,17 @@ export function SettingsForm() {
         setCronSchedule(data.cronSchedule);
         setEmailRecipient(data.emailRecipient);
       });
+    fetch("/api/fb-groups")
+      .then((r) => r.json())
+      .then((data) => {
+        setFbGroups(data.groups || []);
+      });
   }, []);
+
+  function parseGroupId(url: string): string | null {
+    const match = url.match(/facebook\.com\/groups\/([^/?\s]+)/);
+    return match ? match[1] : null;
+  }
 
   async function saveCookies() {
     setSaving(true);
@@ -144,6 +159,129 @@ export function SettingsForm() {
               {testLog}
             </pre>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Facebook Cookies
+            {settings.hasFbCookies && !settings.fbCookiesStale && (
+              <Badge className="bg-blue-100 text-blue-800">Active</Badge>
+            )}
+            {settings.fbCookiesStale && (
+              <Badge variant="destructive">Stale - update required</Badge>
+            )}
+            {!settings.hasFbCookies && (
+              <Badge variant="secondary">Not configured</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Sync Facebook cookies using the Chrome extension. Required cookies: c_user, xs.
+          </p>
+          {settings.hasFbCookies && (
+            <Button
+              variant="outline"
+              disabled={fbTesting}
+              onClick={async () => {
+                setFbTesting(true);
+                setFbMessage("");
+                setFbTestLog("");
+                await fetch("/api/cookies/fb-test", { method: "POST" });
+                const poll = setInterval(async () => {
+                  try {
+                    const res = await fetch("/api/cookies/fb-test");
+                    const data = await res.json();
+                    if (data.log) setFbTestLog(data.log);
+                    if (data.status === "valid") {
+                      clearInterval(poll);
+                      setFbMessage(`FB cookies valid — user ID ${data.userId}`);
+                      setFbTesting(false);
+                    } else if (data.status === "error") {
+                      clearInterval(poll);
+                      setFbMessage(`FB cookie test failed: ${data.error}`);
+                      setFbTesting(false);
+                    }
+                  } catch {
+                    clearInterval(poll);
+                    setFbMessage("FB cookie test failed: network error");
+                    setFbTesting(false);
+                  }
+                }, 3000);
+                setTimeout(() => {
+                  clearInterval(poll);
+                  if (fbTesting) {
+                    setFbMessage("FB cookie test timed out");
+                    setFbTesting(false);
+                  }
+                }, 300000);
+              }}
+            >
+              {fbTesting ? "Testing..." : "Test FB Cookies"}
+            </Button>
+          )}
+          {fbTestLog && (
+            <pre className="max-h-48 overflow-auto border bg-muted p-2 text-xs text-muted-foreground whitespace-pre-wrap">
+              {fbTestLog}
+            </pre>
+          )}
+          {fbMessage && <p className="text-sm text-blue-600">{fbMessage}</p>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Facebook Groups</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {fbGroups.map((group: any) => (
+            <div key={group.group_id} className="flex items-center gap-2">
+              <span className="text-sm flex-1">{group.name}</span>
+              <span className="text-xs text-muted-foreground">{group.group_id}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  await fetch(`/api/fb-groups?groupId=${group.group_id}`, { method: "DELETE" });
+                  setFbGroups((prev) => prev.filter((g: any) => g.group_id !== group.group_id));
+                }}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          {fbGroups.length < 3 && (
+            <div className="flex gap-2">
+              <Input
+                value={newGroupUrl}
+                onChange={(e) => setNewGroupUrl(e.target.value)}
+                placeholder="https://facebook.com/groups/..."
+              />
+              <Button
+                onClick={async () => {
+                  const groupId = parseGroupId(newGroupUrl);
+                  if (!groupId) {
+                    setMessage("Invalid Facebook group URL");
+                    return;
+                  }
+                  await fetch("/api/fb-groups", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ groupId, name: `Group ${groupId}`, url: newGroupUrl }),
+                  });
+                  const data = await fetch("/api/fb-groups").then((r) => r.json());
+                  setFbGroups(data.groups || []);
+                  setNewGroupUrl("");
+                }}
+                disabled={!newGroupUrl}
+              >
+                Add
+              </Button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">Maximum 3 groups. Paste the full group URL.</p>
         </CardContent>
       </Card>
 

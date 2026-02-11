@@ -12,6 +12,7 @@ const TABS = [
   { key: "all", label: "All" },
   { key: "post", label: "Posts" },
   { key: "story", label: "Stories" },
+  { key: "fb_post", label: "Facebook" },
 ] as const;
 
 export function Feed({ account }: FeedProps) {
