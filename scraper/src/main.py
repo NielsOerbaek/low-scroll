@@ -396,6 +396,45 @@ def run_ig_scrape():
         db.close()
 
 
+def check_fb_group_resolve():
+    """Resolve placeholder group names by fetching from Facebook."""
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    status = db.get_config("fb_group_resolve")
+    if status != "pending":
+        db.close()
+        return
+
+    db.set_config("fb_group_resolve", "running")
+
+    cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+    fb_cookies = cookie_mgr.get_fb_cookies()
+    if not fb_cookies:
+        logger.warning("Cannot resolve FB group names: no FB cookies")
+        db.set_config("fb_group_resolve", "done")
+        db.close()
+        return
+
+    from src.facebook import FacebookClient
+    fb = FacebookClient(fb_cookies)
+
+    groups = db.get_all_fb_groups()
+    for group in groups:
+        if group["name"].startswith("Group "):
+            try:
+                real_name = fb.get_group_name(group["group_id"])
+                if real_name and not real_name.startswith("Group "):
+                    db.upsert_fb_group(group["group_id"], real_name, group["url"])
+                    logger.info(f"Resolved FB group {group['group_id']} -> {real_name}")
+            except Exception as e:
+                logger.warning(f"Failed to resolve group {group['group_id']}: {e}")
+
+    db.set_config("fb_group_resolve", "done")
+    db.close()
+
+
 def run_fb_scrape():
     """Run only the Facebook scrape portion."""
     logger.info("Starting FB-only scrape...")
@@ -558,6 +597,12 @@ def main():
         IntervalTrigger(seconds=10),
         id="trigger_scrape_check",
         name="Trigger Scrape Check",
+    )
+    scheduler.add_job(
+        check_fb_group_resolve,
+        IntervalTrigger(seconds=10),
+        id="fb_group_resolve_check",
+        name="FB Group Resolve Check",
     )
     scheduler.add_job(
         check_trigger_ig_scrape,

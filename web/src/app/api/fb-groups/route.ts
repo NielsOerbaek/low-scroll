@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFbGroups, addFbGroup, deleteFbGroup } from "@/lib/db";
+import { getFbGroups, addFbGroup, deleteFbGroup, setConfig } from "@/lib/db";
 
 export async function GET() {
   try {
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Maximum 3 groups allowed" }, { status: 400 });
     }
     addFbGroup(groupId, name || `Group ${groupId}`, url);
+    setConfig("fb_group_resolve", "pending");
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

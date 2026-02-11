@@ -238,7 +238,11 @@ export function SettingsForm() {
         <CardContent className="space-y-3">
           {fbGroups.map((group: any) => (
             <div key={group.group_id} className="flex items-center gap-2">
-              <span className="text-sm flex-1">{group.name}</span>
+              <span className="text-sm flex-1">
+                {group.name.startsWith("Group ") ? (
+                  <span className="text-muted-foreground italic">{group.name} (resolving...)</span>
+                ) : group.name}
+              </span>
               <span className="text-xs text-muted-foreground">{group.group_id}</span>
               <Button
                 variant="outline"
@@ -271,9 +275,20 @@ export function SettingsForm() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ groupId, name: `Group ${groupId}`, url: newGroupUrl }),
                   });
-                  const data = await fetch("/api/fb-groups").then((r) => r.json());
+                  let data = await fetch("/api/fb-groups").then((r) => r.json());
                   setFbGroups(data.groups || []);
                   setNewGroupUrl("");
+                  // Poll for resolved group name
+                  let attempts = 0;
+                  const namePoll = setInterval(async () => {
+                    attempts++;
+                    data = await fetch("/api/fb-groups").then((r) => r.json());
+                    const resolved = (data.groups || []).find((g: any) => g.group_id === groupId);
+                    if ((resolved && !resolved.name.startsWith("Group ")) || attempts >= 10) {
+                      clearInterval(namePoll);
+                      setFbGroups(data.groups || []);
+                    }
+                  }, 3000);
                 }}
                 disabled={!newGroupUrl}
               >
