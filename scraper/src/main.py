@@ -403,12 +403,18 @@ def run_fb_scrape():
     db = Database(config.DATABASE_PATH)
     db.initialize()
 
+    run_id = db.insert_scrape_run()
+    db_handler = DbLogHandler(lambda line: db.append_scrape_run_log(run_id, line))
+    root_logger = logging.getLogger()
+    root_logger.addHandler(db_handler)
+
     try:
         cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
         fb_cookies = cookie_mgr.get_fb_cookies()
 
         if not fb_cookies:
             logger.warning("No FB cookies configured. Skipping.")
+            db.finish_scrape_run(run_id, "error", error="No FB cookies configured")
             return
 
         from src.facebook import FacebookClient
@@ -416,18 +422,23 @@ def run_fb_scrape():
         fb_session_ok = fb.validate_session()
         if fb_session_ok is None:
             logger.warning("FB rate limited during validation, skipping.")
+            db.finish_scrape_run(run_id, "error", error="FB rate limited during validation")
             return
         if not fb_session_ok:
             logger.warning("FB cookies are stale!")
             cookie_mgr.mark_fb_stale()
+            db.finish_scrape_run(run_id, "error", error="FB cookies are stale")
             return
 
         scraper = Scraper(db=db, ig_client=None, downloader=None, fb_client=fb)
         new_fb_posts = scraper.scrape_all_fb_groups()
+        db.finish_scrape_run(run_id, "success", 0, 0)
         logger.info(f"FB scrape complete: {new_fb_posts} new posts")
     except Exception as e:
         logger.error(f"FB scrape failed: {e}")
+        db.finish_scrape_run(run_id, "error", error=str(e))
     finally:
+        root_logger.removeHandler(db_handler)
         db.close()
 
 
