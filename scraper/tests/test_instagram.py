@@ -47,10 +47,6 @@ def test_get_following_returns_usernames():
 def test_get_user_posts(mock_delay):
     client = _make_client()
 
-    profile_resp = MagicMock()
-    profile_resp.status_code = 200
-    profile_resp.json.return_value = {"data": {"user": {"id": "456"}}}
-
     feed_resp = MagicMock()
     feed_resp.status_code = 200
     feed_resp.json.return_value = {
@@ -65,7 +61,7 @@ def test_get_user_posts(mock_delay):
         "next_max_id": None,
     }
 
-    client._session.get.side_effect = [profile_resp, feed_resp]
+    client._session.get.return_value = feed_resp
     result = client.get_user_posts("testuser", amount=1)
     assert len(result) == 1
     assert result[0]["id"] == "post123"
