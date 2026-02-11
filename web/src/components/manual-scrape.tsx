@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export function ManualScrape() {
   const [sinceDate, setSinceDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [triggering, setTriggering] = useState(false);
+  const [triggeringIg, setTriggeringIg] = useState(false);
+  const [triggeringFb, setTriggeringFb] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -32,18 +33,19 @@ export function ManualScrape() {
     setSubmitting(false);
   }
 
-  async function triggerScrapeNow() {
-    setTriggering(true);
+  async function triggerPlatformScrape(platform: "ig" | "fb") {
+    const setter = platform === "ig" ? setTriggeringIg : setTriggeringFb;
+    setter(true);
     setError("");
     setMessage("");
-    const res = await fetch("/api/scrape/trigger", { method: "POST" });
+    const res = await fetch(`/api/scrape/trigger?platform=${platform}`, { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error || "Failed to trigger scrape");
+      setError(data.error || `Failed to trigger ${platform.toUpperCase()} scrape`);
     } else {
-      setMessage("Scrape triggered — check activity log below.");
+      setMessage(`${platform.toUpperCase()} scrape triggered — check activity log below.`);
     }
-    setTriggering(false);
+    setter(false);
   }
 
   return (
@@ -52,9 +54,14 @@ export function ManualScrape() {
         <CardTitle>Scrape</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Button onClick={triggerScrapeNow} disabled={triggering}>
-          {triggering ? "Triggering..." : "Scrape Now"}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => triggerPlatformScrape("ig")} disabled={triggeringIg}>
+            {triggeringIg ? "Triggering..." : "Scrape Instagram"}
+          </Button>
+          <Button variant="outline" onClick={() => triggerPlatformScrape("fb")} disabled={triggeringFb}>
+            {triggeringFb ? "Triggering..." : "Scrape Facebook"}
+          </Button>
+        </div>
 
         <div className="border-t pt-4">
           <div className="flex items-end gap-3">

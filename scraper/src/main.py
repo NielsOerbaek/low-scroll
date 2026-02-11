@@ -331,6 +331,106 @@ def check_manual_runs():
         db.close()
 
 
+def run_ig_scrape():
+    """Run only the Instagram scrape portion."""
+    logger.info("Starting IG-only scrape...")
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    run_id = db.insert_scrape_run()
+    db_handler = DbLogHandler(lambda line: db.append_scrape_run_log(run_id, line))
+    root_logger = logging.getLogger()
+    root_logger.addHandler(db_handler)
+
+    try:
+        cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+        cookies = cookie_mgr.get_cookies()
+        digest = DigestBuilder(
+            resend_api_key=config.RESEND_API_KEY,
+            base_url=config.BASE_URL,
+            media_path=config.MEDIA_PATH,
+        )
+
+        if not cookies:
+            logger.warning("No IG cookies configured. Skipping.")
+            db.finish_scrape_run(run_id, "error", error="No IG cookies configured")
+            return
+
+        ig = InstagramClient(cookies)
+        session_ok = ig.validate_session()
+        if session_ok is None:
+            logger.warning("Rate limited during validation, skipping this run.")
+            db.finish_scrape_run(run_id, "error", error="Rate limited during validation")
+            return
+        if not session_ok:
+            logger.warning("IG cookies are stale!")
+            cookie_mgr.mark_stale()
+            db.finish_scrape_run(run_id, "error", error="Cookies are stale")
+            return
+
+        downloader = MediaDownloader(config.MEDIA_PATH)
+        scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
+
+        logger.info("Syncing following list...")
+        scraper.sync_following()
+
+        total_posts, total_stories = scraper.scrape_all()
+        db.finish_scrape_run(run_id, "success", total_posts, total_stories)
+        logger.info(f"IG scrape complete: {total_posts} posts, {total_stories} stories")
+
+        total_new = total_posts + total_stories
+        if total_new > 0 and config.EMAIL_RECIPIENT:
+            run_info = db.get_scrape_run(run_id)
+            new_posts = db.get_new_posts_since(run_info["started_at"])
+            for post in new_posts:
+                post["media"] = db.get_media_for_post(post["id"])
+            html, attachments = digest.build_html(new_posts)
+            digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments)
+            logger.info("Digest email sent.")
+    except Exception as e:
+        logger.error(f"IG scrape failed: {e}")
+        db.finish_scrape_run(run_id, "error", error=str(e))
+    finally:
+        root_logger.removeHandler(db_handler)
+        db.close()
+
+
+def run_fb_scrape():
+    """Run only the Facebook scrape portion."""
+    logger.info("Starting FB-only scrape...")
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    try:
+        cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+        fb_cookies = cookie_mgr.get_fb_cookies()
+
+        if not fb_cookies:
+            logger.warning("No FB cookies configured. Skipping.")
+            return
+
+        from src.facebook import FacebookClient
+        fb = FacebookClient(fb_cookies)
+        fb_session_ok = fb.validate_session()
+        if fb_session_ok is None:
+            logger.warning("FB rate limited during validation, skipping.")
+            return
+        if not fb_session_ok:
+            logger.warning("FB cookies are stale!")
+            cookie_mgr.mark_fb_stale()
+            return
+
+        scraper = Scraper(db=db, ig_client=None, downloader=None, fb_client=fb)
+        new_fb_posts = scraper.scrape_all_fb_groups()
+        logger.info(f"FB scrape complete: {new_fb_posts} new posts")
+    except Exception as e:
+        logger.error(f"FB scrape failed: {e}")
+    finally:
+        db.close()
+
+
 def check_trigger_scrape():
     config = Config()
     db = Database(config.DATABASE_PATH)
@@ -350,6 +450,50 @@ def check_trigger_scrape():
     db = Database(config.DATABASE_PATH)
     db.initialize()
     db.set_config("trigger_scrape", "done")
+    db.close()
+
+
+def check_trigger_ig_scrape():
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    status = db.get_config("trigger_ig_scrape")
+    if status != "pending":
+        db.close()
+        return
+
+    logger.info("Manual IG scrape trigger detected...")
+    db.set_config("trigger_ig_scrape", "running")
+    db.close()
+
+    run_ig_scrape()
+
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+    db.set_config("trigger_ig_scrape", "done")
+    db.close()
+
+
+def check_trigger_fb_scrape():
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    status = db.get_config("trigger_fb_scrape")
+    if status != "pending":
+        db.close()
+        return
+
+    logger.info("Manual FB scrape trigger detected...")
+    db.set_config("trigger_fb_scrape", "running")
+    db.close()
+
+    run_fb_scrape()
+
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+    db.set_config("trigger_fb_scrape", "done")
     db.close()
 
 
@@ -403,6 +547,18 @@ def main():
         IntervalTrigger(seconds=10),
         id="trigger_scrape_check",
         name="Trigger Scrape Check",
+    )
+    scheduler.add_job(
+        check_trigger_ig_scrape,
+        IntervalTrigger(seconds=10),
+        id="trigger_ig_scrape_check",
+        name="Trigger IG Scrape Check",
+    )
+    scheduler.add_job(
+        check_trigger_fb_scrape,
+        IntervalTrigger(seconds=10),
+        id="trigger_fb_scrape_check",
+        name="Trigger FB Scrape Check",
     )
 
     # No initial scrape on startup — wait for cron to avoid burst traffic
