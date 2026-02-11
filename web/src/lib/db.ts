@@ -91,6 +91,11 @@ export function setConfig(key: string, value: string): void {
     key,
     value
   );
+  // Invalidate cached read-only connection so next getConfig sees the write
+  if (_db) {
+    _db.close();
+    _db = null;
+  }
   db.close();
 }
 
