@@ -77,17 +77,37 @@ def test_scrape_all_returns_totals(env):
     db.upsert_account("user2", None)
 
     mock_ig = MagicMock()
-    mock_ig.get_user_posts.return_value = [
+    mock_ig.get_timeline_feed.return_value = [
         {
-            "id": "unique_id",
-            "caption": "Hi",
+            "id": "feed_post1",
+            "username": "user1",
+            "caption": "Hi from feed",
             "timestamp": "2026-01-01T00:00:00",
             "permalink": "",
             "post_type": "post",
             "media": [],
-        }
+        },
+        {
+            "id": "feed_post2",
+            "username": "stranger",  # not followed, should be filtered
+            "caption": "Not followed",
+            "timestamp": "2026-01-01T00:00:00",
+            "permalink": "",
+            "post_type": "post",
+            "media": [],
+        },
     ]
-    mock_ig.get_user_stories.return_value = []
+    mock_ig.get_reels_tray.return_value = [
+        {
+            "id": "story1",
+            "username": "user2",
+            "caption": "",
+            "timestamp": "2026-01-01T00:00:00",
+            "permalink": "",
+            "post_type": "story",
+            "media": [],
+        },
+    ]
     mock_ig.random_delay = MagicMock()
     mock_downloader = MagicMock()
     mock_downloader.download_with_thumbnail.return_value = ("path", None)
@@ -95,7 +115,8 @@ def test_scrape_all_returns_totals(env):
     scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader)
 
     total_posts, total_stories = scraper.scrape_all()
-    assert total_posts >= 1
+    assert total_posts == 1  # only user1's post, not stranger's
+    assert total_stories == 1  # user2's story
 
 
 def test_scrape_account_backfill_filters_by_date(env):

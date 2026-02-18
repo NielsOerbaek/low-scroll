@@ -8,7 +8,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from src.config import Config
 from src.db import Database
 from src.cookies import CookieManager
-from src.instagram import InstagramClient
+from src.instagram import InstagramClient, SessionExpiredError
 from src.downloader import MediaDownloader
 from src.scrape import Scraper
 from src.digest import DigestBuilder
@@ -49,27 +49,8 @@ def run_scrape():
             return
 
         ig = InstagramClient(cookies)
-        session_ok = ig.validate_session()
-        if session_ok is None:
-            logger.warning("Rate limited during validation, skipping this run.")
-            db.finish_scrape_run(run_id, "error", error="Rate limited during validation")
-            return
-        if not session_ok:
-            logger.warning("Cookies are stale!")
-            cookie_mgr.mark_stale()
-            db.finish_scrape_run(run_id, "error", error="Cookies are stale")
-            if config.EMAIL_RECIPIENT:
-                try:
-                    digest.send_stale_cookies_alert(config.EMAIL_RECIPIENT)
-                except Exception as e:
-                    logger.error(f"Failed to send stale cookies alert: {e}")
-            return
-
         downloader = MediaDownloader(config.MEDIA_PATH)
         scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
-
-        logger.info("Syncing following list...")
-        scraper.sync_following()
 
         total_posts, total_stories = scraper.scrape_all()
         db.finish_scrape_run(run_id, "success", total_posts, total_stories)
@@ -105,6 +86,15 @@ def run_scrape():
             digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments)
             logger.info("Digest email sent.")
 
+    except SessionExpiredError:
+        logger.warning("Session expired during scrape — cookies need refresh")
+        cookie_mgr.mark_stale()
+        db.finish_scrape_run(run_id, "error", error="Session expired — update cookies")
+        if config.EMAIL_RECIPIENT:
+            try:
+                digest.send_stale_cookies_alert(config.EMAIL_RECIPIENT)
+            except Exception as e:
+                logger.error(f"Failed to send stale cookies alert: {e}")
     except Exception as e:
         logger.error(f"Scrape failed: {e}")
         db.finish_scrape_run(run_id, "error", error=str(e))
@@ -306,23 +296,16 @@ def check_manual_runs():
             return
 
         ig = InstagramClient(cookies)
-        session_ok = ig.validate_session()
-        if session_ok is None:
-            logger.warning("Rate limited during manual run validation.")
-            db.finish_manual_run(run_id, "error", error="Rate limited, try again later")
-            return
-        if not session_ok:
-            logger.warning("Stale cookies for manual run.")
-            cookie_mgr.mark_stale()
-            db.finish_manual_run(run_id, "error", error="Cookies are stale")
-            return
-
         downloader = MediaDownloader(config.MEDIA_PATH)
         scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
 
         total_posts, total_stories = scraper.scrape_all_backfill(since_date)
         db.finish_manual_run(run_id, "success", total_posts, total_stories)
         logger.info(f"Manual run #{run_id} complete: {total_posts} posts, {total_stories} stories")
+    except SessionExpiredError:
+        logger.warning(f"Session expired during manual run #{run_id}")
+        cookie_mgr.mark_stale()
+        db.finish_manual_run(run_id, "error", error="Session expired — update cookies")
     except Exception as e:
         logger.error(f"Manual run #{run_id} failed: {e}")
         db.finish_manual_run(run_id, "error", error=str(e))
@@ -358,22 +341,8 @@ def run_ig_scrape():
             return
 
         ig = InstagramClient(cookies)
-        session_ok = ig.validate_session()
-        if session_ok is None:
-            logger.warning("Rate limited during validation, skipping this run.")
-            db.finish_scrape_run(run_id, "error", error="Rate limited during validation")
-            return
-        if not session_ok:
-            logger.warning("IG cookies are stale!")
-            cookie_mgr.mark_stale()
-            db.finish_scrape_run(run_id, "error", error="Cookies are stale")
-            return
-
         downloader = MediaDownloader(config.MEDIA_PATH)
         scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
-
-        logger.info("Syncing following list...")
-        scraper.sync_following()
 
         total_posts, total_stories = scraper.scrape_all()
         db.finish_scrape_run(run_id, "success", total_posts, total_stories)
@@ -388,6 +357,10 @@ def run_ig_scrape():
             html, attachments = digest.build_html(new_posts)
             digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments)
             logger.info("Digest email sent.")
+    except SessionExpiredError:
+        logger.warning("Session expired during IG scrape — cookies need refresh")
+        cookie_mgr.mark_stale()
+        db.finish_scrape_run(run_id, "error", error="Session expired — update cookies")
     except Exception as e:
         logger.error(f"IG scrape failed: {e}")
         db.finish_scrape_run(run_id, "error", error=str(e))

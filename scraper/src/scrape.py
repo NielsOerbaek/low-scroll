@@ -96,21 +96,43 @@ class Scraper:
         return total_posts, total_stories
 
     def scrape_all(self) -> tuple[int, int]:
+        """Scrape the timeline feed and stories tray instead of per-profile."""
         accounts = self.db.get_all_accounts()
+        followed = {a["username"] for a in accounts}
         total_posts = 0
         total_stories = 0
 
-        for account in accounts:
-            username = account["username"]
-            try:
-                logger.info(f"Scraping {username}...")
-                posts, stories = self.scrape_account(username)
-                total_posts += posts
-                total_stories += stories
-                logger.info(f"  {username}: {posts} new posts, {stories} new stories")
-                self.ig.random_delay(15.0, 45.0)
-            except Exception as e:
-                logger.error(f"  Error scraping {username}: {e}")
+        # Fetch timeline feed (replaces per-profile post scraping)
+        logger.info("Fetching timeline feed...")
+        try:
+            feed_posts = self.ig.get_timeline_feed(pages=5)
+            for post in feed_posts:
+                username = post.get("username", "")
+                if username not in followed:
+                    continue
+                was_new = self._process_post(post, username)
+                if was_new:
+                    total_posts += 1
+            logger.info(f"Timeline feed: {total_posts} new posts from {len(followed)} followed accounts")
+        except Exception as e:
+            logger.error(f"Error fetching timeline feed: {e}")
+
+        self.ig.random_delay(5.0, 15.0)
+
+        # Fetch stories from reels tray (replaces per-profile story scraping)
+        logger.info("Fetching stories tray...")
+        try:
+            stories = self.ig.get_reels_tray()
+            for story in stories:
+                username = story.get("username", "")
+                if username not in followed:
+                    continue
+                was_new = self._process_post(story, username)
+                if was_new:
+                    total_stories += 1
+            logger.info(f"Stories tray: {total_stories} new stories")
+        except Exception as e:
+            logger.error(f"Error fetching stories tray: {e}")
 
         return total_posts, total_stories
 
