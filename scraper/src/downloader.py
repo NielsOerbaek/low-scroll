@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 from curl_cffi import requests
 from PIL import Image
 
@@ -47,7 +48,29 @@ class MediaDownloader:
         full_path = os.path.join(self.media_dir, rel_path)
 
         if rel_path.endswith(".mp4"):
-            return rel_path, None
+            thumb_rel = rel_path.replace(".mp4", "_thumb.jpg")
+            thumb_full = os.path.join(self.media_dir, thumb_rel)
+            if not os.path.exists(thumb_full):
+                try:
+                    subprocess.run(
+                        [
+                            "ffmpeg", "-loglevel", "error",
+                            "-i", full_path,
+                            "-ss", "00:00:00.5",
+                            "-vframes", "1",
+                            "-y", thumb_full,
+                        ],
+                        capture_output=True, timeout=30,
+                    )
+                    if os.path.exists(thumb_full):
+                        img = Image.open(thumb_full)
+                        img.thumbnail(THUMBNAIL_SIZE)
+                        img.save(thumb_full, "JPEG", quality=80)
+                    else:
+                        return rel_path, None
+                except Exception:
+                    return rel_path, None
+            return rel_path, thumb_rel
 
         thumb_rel = rel_path.replace(".jpg", "_thumb.jpg")
         thumb_full = os.path.join(self.media_dir, thumb_rel)
