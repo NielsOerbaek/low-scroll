@@ -200,9 +200,13 @@ export function addFbGroup(userId: number, groupId: string, name: string, url: s
 
 export function deleteFbGroup(userId: number, groupId: string): void {
   const db = getWritableDb();
-  db.prepare("DELETE FROM fb_comments WHERE post_id IN (SELECT id FROM fb_posts WHERE group_id=?)").run(groupId);
-  db.prepare("DELETE FROM fb_posts WHERE group_id=?").run(groupId);
   db.prepare("DELETE FROM fb_groups WHERE user_id = ? AND group_id=?").run(userId, groupId);
+  // Only delete posts/comments if no other user references this group
+  const other = db.prepare("SELECT 1 FROM fb_groups WHERE group_id = ? LIMIT 1").get(groupId);
+  if (!other) {
+    db.prepare("DELETE FROM fb_comments WHERE post_id IN (SELECT id FROM fb_posts WHERE group_id=?)").run(groupId);
+    db.prepare("DELETE FROM fb_posts WHERE group_id=?").run(groupId);
+  }
   db.close();
 }
 

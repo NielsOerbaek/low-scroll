@@ -88,11 +88,24 @@ def test_insert_user_duplicate_email(db, user_id):
 
 
 def test_get_all_active_users(db, user_id, user_id_2):
+    # Only users with ig_cookies should be returned
+    db.set_user_config(user_id, "ig_cookies", "encrypted_blob")
+    db.set_user_config(user_id_2, "ig_cookies", "encrypted_blob_2")
     users = db.get_all_active_users()
     assert len(users) == 2
 
 
+def test_get_all_active_users_requires_cookies(db, user_id, user_id_2):
+    # Only user_id has cookies, so only 1 returned
+    db.set_user_config(user_id, "ig_cookies", "encrypted_blob")
+    users = db.get_all_active_users()
+    assert len(users) == 1
+    assert users[0]["id"] == user_id
+
+
 def test_deactivate_user(db, user_id, user_id_2):
+    db.set_user_config(user_id, "ig_cookies", "encrypted_blob")
+    db.set_user_config(user_id_2, "ig_cookies", "encrypted_blob_2")
     db.deactivate_user(user_id)
     users = db.get_all_active_users()
     assert len(users) == 1
@@ -230,6 +243,24 @@ def test_insert_post_duplicate(db, user_id):
         post_type="post", caption="", timestamp="2026-01-01T00:00:00", permalink="",
     )
     assert result is False
+
+
+def test_same_post_id_different_users(db, user_id, user_id_2):
+    """Two users following the same account can both store the same post."""
+    db.upsert_account(user_id, "shared_acct", None)
+    db.upsert_account(user_id_2, "shared_acct", None)
+    r1 = db.insert_post(
+        user_id=user_id, id="same_id", username="shared_acct",
+        post_type="post", caption="", timestamp="2026-01-01T00:00:00", permalink="",
+    )
+    r2 = db.insert_post(
+        user_id=user_id_2, id="same_id", username="shared_acct",
+        post_type="post", caption="", timestamp="2026-01-01T00:00:00", permalink="",
+    )
+    assert r1 is True
+    assert r2 is True
+    assert len(db.get_feed(user_id)) == 1
+    assert len(db.get_feed(user_id_2)) == 1
 
 
 def test_insert_media(db, user_id):
@@ -443,6 +474,26 @@ def test_delete_fb_group_cascades_posts_and_comments(db, user_id):
     )
     db.insert_fb_comment("fp1", "Jane", "Nice!", "2026-01-01T01:00:00")
     db.delete_fb_group(user_id, "111")
+    assert db.get_fb_post("fp1") is None
+    assert len(db.get_comments_for_post("fp1")) == 0
+
+
+def test_delete_fb_group_shared_preserves_posts(db, user_id, user_id_2):
+    """Deleting a shared group for one user preserves fb_posts for the other."""
+    db.upsert_fb_group(user_id, "shared", "Shared Group", "https://facebook.com/groups/shared")
+    db.upsert_fb_group(user_id_2, "shared", "Shared Group", "https://facebook.com/groups/shared")
+    db.insert_fb_post(
+        id="fp1", group_id="shared", author_name="John",
+        content="Hello", timestamp="2026-01-01T00:00:00", permalink="",
+    )
+    db.insert_fb_comment("fp1", "Jane", "Nice!", "2026-01-01T01:00:00")
+    # User 1 removes the group — posts should stay for user 2
+    db.delete_fb_group(user_id, "shared")
+    assert db.get_fb_group(user_id, "shared") is None
+    assert db.get_fb_post("fp1") is not None
+    assert len(db.get_comments_for_post("fp1")) == 1
+    # User 2 removes the group — now posts should be cleaned up
+    db.delete_fb_group(user_id_2, "shared")
     assert db.get_fb_post("fp1") is None
     assert len(db.get_comments_for_post("fp1")) == 0
 

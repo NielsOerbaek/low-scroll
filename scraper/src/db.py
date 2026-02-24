@@ -1,5 +1,4 @@
 import sqlite3
-from datetime import datetime, timezone
 
 
 class Database:
@@ -54,19 +53,20 @@ class Database:
             );
 
             CREATE TABLE IF NOT EXISTS posts (
-                id TEXT PRIMARY KEY,
+                id TEXT NOT NULL,
                 user_id INTEGER NOT NULL REFERENCES users(id),
                 username TEXT NOT NULL,
                 type TEXT NOT NULL CHECK(type IN ('post','reel','story')),
                 caption TEXT,
                 timestamp DATETIME,
                 permalink TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, id)
             );
 
             CREATE TABLE IF NOT EXISTS media (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                post_id TEXT NOT NULL REFERENCES posts(id),
+                post_id TEXT NOT NULL,
                 media_type TEXT NOT NULL CHECK(media_type IN ('image','video')),
                 file_path TEXT NOT NULL,
                 thumbnail_path TEXT,
@@ -149,7 +149,11 @@ class Database:
         return dict(row) if row else None
 
     def get_all_active_users(self) -> list[dict]:
-        rows = self.execute("SELECT * FROM users WHERE is_active=1").fetchall()
+        rows = self.execute(
+            """SELECT u.* FROM users u
+               JOIN user_config uc ON u.id = uc.user_id AND uc.key = 'ig_cookies'
+               WHERE u.is_active = 1"""
+        ).fetchall()
         return [dict(r) for r in rows]
 
     def deactivate_user(self, user_id: int):
@@ -432,15 +436,22 @@ class Database:
         return [dict(r) for r in rows]
 
     def delete_fb_group(self, user_id: int, group_id: str):
-        self.execute(
-            "DELETE FROM fb_comments WHERE post_id IN (SELECT id FROM fb_posts WHERE group_id=?)",
-            (group_id,),
-        )
-        self.execute("DELETE FROM fb_posts WHERE group_id=?", (group_id,))
+        if not self.get_fb_group(user_id, group_id):
+            return
         self.execute(
             "DELETE FROM fb_groups WHERE user_id=? AND group_id=?",
             (user_id, group_id),
         )
+        # Only delete posts/comments if no other user references this group
+        other = self.execute(
+            "SELECT 1 FROM fb_groups WHERE group_id=? LIMIT 1", (group_id,)
+        ).fetchone()
+        if not other:
+            self.execute(
+                "DELETE FROM fb_comments WHERE post_id IN (SELECT id FROM fb_posts WHERE group_id=?)",
+                (group_id,),
+            )
+            self.execute("DELETE FROM fb_posts WHERE group_id=?", (group_id,))
         self.conn.commit()
 
     def update_fb_group_last_checked(self, user_id: int, group_id: str):
