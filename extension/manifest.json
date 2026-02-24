@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "low-scroll Cookie Sync",
-  "version": "1.3",
+  "version": "2.0",
   "description": "Sync Instagram and Facebook cookies to your low-scroll instance",
   "permissions": ["cookies", "storage"],
   "host_permissions": ["https://*.instagram.com/*", "https://*.facebook.com/*"],

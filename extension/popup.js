@@ -50,13 +50,13 @@ function setStatus(msg, type) {
 
 async function syncCookies() {
   const url = document.getElementById("url").value.replace(/\/$/, "");
-  const password = document.getElementById("password").value;
+  const apiKey = document.getElementById("apikey").value.trim();
 
   if (!url) return setStatus("Enter instance URL", "err");
-  if (!password) return setStatus("Enter admin password", "err");
+  if (!apiKey) return setStatus("Enter your API key", "err");
 
   chrome.storage.local.set({
-    [STORAGE_KEY]: { url, password },
+    [STORAGE_KEY]: { url, apiKey },
   });
 
   const btn = document.getElementById("sync");
@@ -68,7 +68,7 @@ async function syncCookies() {
     const res = await fetch(`${url}/api/extension/cookies`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, cookies: foundCookies }),
+      body: JSON.stringify({ api_key: apiKey, cookies: foundCookies }),
     });
 
     if (!res.ok) {
@@ -92,7 +92,7 @@ document.getElementById("sync").addEventListener("click", syncCookies);
 chrome.storage.local.get(STORAGE_KEY, (data) => {
   const saved = data[STORAGE_KEY];
   if (saved?.url) document.getElementById("url").value = saved.url;
-  if (saved?.password) document.getElementById("password").value = saved.password;
+  if (saved?.apiKey) document.getElementById("apikey").value = saved.apiKey;
 });
 
 loadCookies();
@@ -145,10 +145,10 @@ function setFbStatus(msg, type) {
 
 async function syncFbCookies() {
   const url = document.getElementById("url").value.replace(/\/$/, "");
-  const password = document.getElementById("password").value;
+  const apiKey = document.getElementById("apikey").value.trim();
 
   if (!url) return setFbStatus("Enter instance URL", "err");
-  if (!password) return setFbStatus("Enter admin password", "err");
+  if (!apiKey) return setFbStatus("Enter your API key", "err");
 
   const btn = document.getElementById("fb-sync");
   btn.disabled = true;
@@ -159,7 +159,7 @@ async function syncFbCookies() {
     const res = await fetch(`${url}/api/extension/fb-cookies`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, cookies: fbFoundCookies }),
+      body: JSON.stringify({ api_key: apiKey, cookies: fbFoundCookies }),
     });
 
     if (!res.ok) {
