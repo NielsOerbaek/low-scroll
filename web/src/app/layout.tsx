@@ -38,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="border-b">
           <div className="h-[2px] bg-gradient-to-r from-[#FEDA77] via-[#DD2A7B] to-[#515BD4]" />
           <nav className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/feed" className="flex items-center gap-2">
               <img src="/icon-192.png" alt="low-scroll" width={28} height={28} />
               <span className="font-semibold text-lg tracking-tight">low-scroll</span>
             </Link>
