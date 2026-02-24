@@ -56,6 +56,11 @@ def run_scrape():
         db.finish_scrape_run(run_id, "success", total_posts, total_stories)
         logger.info(f"Scrape complete: {total_posts} posts, {total_stories} stories")
 
+        # Check for pending DMs
+        pending_dms = ig.get_pending_dm_count()
+        if pending_dms > 0:
+            logger.info(f"Pending DMs: {pending_dms}")
+
         # --- Facebook scraping ---
         new_fb_posts = 0
         fb_cookie_mgr_cookies = cookie_mgr.get_fb_cookies()
@@ -76,14 +81,14 @@ def run_scrape():
             logger.info("No FB cookies configured, skipping Facebook scraping.")
 
         total_new = total_posts + total_stories + new_fb_posts
-        if total_new > 0 and config.EMAIL_RECIPIENT:
+        if (total_new > 0 or pending_dms > 0) and config.EMAIL_RECIPIENT:
             run_info = db.get_scrape_run(run_id)
             new_posts = db.get_new_posts_since(run_info["started_at"])
             for post in new_posts:
                 post["media"] = db.get_media_for_post(post["id"])
             new_fb = db.get_new_fb_posts_since(run_info["started_at"])
-            html, attachments = digest.build_html(new_posts, new_fb)
-            digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments)
+            html, attachments = digest.build_html(new_posts, new_fb, pending_dms=pending_dms)
+            digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments, pending_dms=pending_dms)
             logger.info("Digest email sent.")
 
     except SessionExpiredError:
@@ -348,14 +353,19 @@ def run_ig_scrape():
         db.finish_scrape_run(run_id, "success", total_posts, total_stories)
         logger.info(f"IG scrape complete: {total_posts} posts, {total_stories} stories")
 
+        # Check for pending DMs
+        pending_dms = ig.get_pending_dm_count()
+        if pending_dms > 0:
+            logger.info(f"Pending DMs: {pending_dms}")
+
         total_new = total_posts + total_stories
-        if total_new > 0 and config.EMAIL_RECIPIENT:
+        if (total_new > 0 or pending_dms > 0) and config.EMAIL_RECIPIENT:
             run_info = db.get_scrape_run(run_id)
             new_posts = db.get_new_posts_since(run_info["started_at"])
             for post in new_posts:
                 post["media"] = db.get_media_for_post(post["id"])
-            html, attachments = digest.build_html(new_posts)
-            digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments)
+            html, attachments = digest.build_html(new_posts, pending_dms=pending_dms)
+            digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments, pending_dms=pending_dms)
             logger.info("Digest email sent.")
     except SessionExpiredError:
         logger.warning("Session expired during IG scrape — cookies need refresh")

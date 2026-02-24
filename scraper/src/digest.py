@@ -29,7 +29,7 @@ class DigestBuilder:
         with open(logo_path, "rb") as f:
             return base64.b64encode(f.read()).decode()
 
-    def build_html(self, posts: list[dict], fb_posts: list[dict] | None = None) -> tuple[str, list[dict]]:
+    def build_html(self, posts: list[dict], fb_posts: list[dict] | None = None, pending_dms: int = 0) -> tuple[str, list[dict]]:
         grouped = defaultdict(list)
         post_count = 0
         story_count = 0
@@ -90,14 +90,21 @@ class DigestBuilder:
             base_url=self.base_url,
             fb_grouped=fb_grouped,
             fb_count=fb_count,
+            pending_dms=pending_dms,
         )
         return html, attachments
 
-    def send(self, to_email: str, html: str, post_count: int, attachments: list[dict] | None = None):
+    def send(self, to_email: str, html: str, post_count: int, attachments: list[dict] | None = None, pending_dms: int = 0):
+        parts = []
+        if post_count > 0:
+            parts.append(f"{post_count} new item{'s' if post_count != 1 else ''}")
+        if pending_dms > 0:
+            parts.append(f"{pending_dms} unread DM{'s' if pending_dms != 1 else ''}")
+        subject = f"low-scroll digest: {', '.join(parts)}" if parts else "low-scroll digest"
         payload = {
             "from": self.from_email,
             "to": [to_email],
-            "subject": f"low-scroll digest: {post_count} new item{'s' if post_count != 1 else ''}",
+            "subject": subject,
             "html": html,
         }
         if attachments:

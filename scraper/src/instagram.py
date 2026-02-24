@@ -258,6 +258,17 @@ class InstagramClient:
 
         return stories
 
+    def get_pending_dm_count(self) -> int:
+        """Check the inbox for pending/unseen DM threads. Returns the count."""
+        try:
+            data = self._get("/api/v1/direct_v2/inbox/", {"limit": "1"},
+                             referer="https://www.instagram.com/direct/inbox/")
+            inbox = data.get("inbox", {})
+            return inbox.get("unseen_count", 0)
+        except Exception as e:
+            logger.warning(f"Failed to check DM inbox: {e}")
+            return 0
+
     def get_user_profile_pic(self, username: str) -> str:
         data = self._get("/api/v1/users/web_profile_info/", {"username": username},
                          referer=f"https://www.instagram.com/{username}/")
