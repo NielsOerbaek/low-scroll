@@ -42,9 +42,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <img src="/icon-192.png" alt="low-scroll" width={28} height={28} />
               <span className="font-semibold text-lg tracking-tight">low-scroll</span>
             </Link>
-            <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
-              Settings
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+                Settings
+              </Link>
+              <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground">
+                Admin
+              </Link>
+              <a href="/api/auth/logout" className="text-sm text-muted-foreground hover:text-foreground">
+                Logout
+              </a>
+            </div>
           </nav>
         </header>
         <main className="max-w-5xl mx-auto px-4 py-3">
