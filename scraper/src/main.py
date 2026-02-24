@@ -1,9 +1,10 @@
 import logging
 import signal
 import sys
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
+import time
+from datetime import datetime, timezone
+
+from croniter import croniter
 
 from src.config import Config
 from src.db import Database
@@ -20,94 +21,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run_scrape():
-    logger.info("Starting scrape run...")
-    config = Config()
-    db = Database(config.DATABASE_PATH)
-    db.initialize()
-
-    run_id = db.insert_scrape_run()
-
-    # Attach DB log handler to capture all logs for this run
-    db_handler = DbLogHandler(lambda line: db.append_scrape_run_log(run_id, line))
-    root_logger = logging.getLogger()
-    root_logger.addHandler(db_handler)
-
-    try:
-        cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
-        cookies = cookie_mgr.get_cookies()
-
-        digest = DigestBuilder(
-            resend_api_key=config.RESEND_API_KEY,
-            base_url=config.BASE_URL,
-            media_path=config.MEDIA_PATH,
-        )
-
-        if not cookies:
-            logger.warning("No cookies configured. Skipping.")
-            db.finish_scrape_run(run_id, "error", error="No cookies configured")
-            return
-
-        ig = InstagramClient(cookies)
-        downloader = MediaDownloader(config.MEDIA_PATH)
-        scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
-
-        total_posts, total_stories = scraper.scrape_all()
-        db.finish_scrape_run(run_id, "success", total_posts, total_stories)
-        logger.info(f"Scrape complete: {total_posts} posts, {total_stories} stories")
-
-        # Check for pending DMs
-        pending_dms = ig.get_pending_dm_count()
-        if pending_dms > 0:
-            logger.info(f"Pending DMs: {pending_dms}")
-
-        # --- Facebook scraping ---
-        new_fb_posts = 0
-        fb_cookie_mgr_cookies = cookie_mgr.get_fb_cookies()
-        if fb_cookie_mgr_cookies:
-            from src.facebook import FacebookClient
-            fb = FacebookClient(fb_cookie_mgr_cookies)
-            fb_session_ok = fb.validate_session()
-            if fb_session_ok is None:
-                logger.warning("FB rate limited during validation, skipping FB this run.")
-            elif not fb_session_ok:
-                logger.warning("FB cookies are stale!")
-                cookie_mgr.mark_fb_stale()
-            else:
-                scraper.fb = fb
-                new_fb_posts = scraper.scrape_all_fb_groups()
-                logger.info(f"FB scrape complete: {new_fb_posts} new posts")
-        else:
-            logger.info("No FB cookies configured, skipping Facebook scraping.")
-
-        total_new = total_posts + total_stories + new_fb_posts
-        if (total_new > 0 or pending_dms > 0) and config.EMAIL_RECIPIENT:
-            run_info = db.get_scrape_run(run_id)
-            new_posts = db.get_new_posts_since(run_info["started_at"])
-            for post in new_posts:
-                post["media"] = db.get_media_for_post(post["id"])
-            new_fb = db.get_new_fb_posts_since(run_info["started_at"])
-            html, attachments = digest.build_html(new_posts, new_fb, pending_dms=pending_dms)
-            digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments, pending_dms=pending_dms)
-            logger.info("Digest email sent.")
-
-    except SessionExpiredError:
-        logger.warning("Session expired during scrape — cookies need refresh")
-        cookie_mgr.mark_stale()
-        db.finish_scrape_run(run_id, "error", error="Session expired — update cookies")
-        if config.EMAIL_RECIPIENT:
-            try:
-                digest.send_stale_cookies_alert(config.EMAIL_RECIPIENT)
-            except Exception as e:
-                logger.error(f"Failed to send stale cookies alert: {e}")
-    except Exception as e:
-        logger.error(f"Scrape failed: {e}")
-        db.finish_scrape_run(run_id, "error", error=str(e))
-    finally:
-        root_logger.removeHandler(db_handler)
-        db.close()
-
-
 class DbLogHandler(logging.Handler):
     """Logging handler that appends log lines to a database log column."""
     def __init__(self, log_fn):
@@ -122,33 +35,177 @@ class DbLogHandler(logging.Handler):
             pass
 
 
-def check_cookie_test():
+def is_scrape_due(cron_expr: str, last_scrape_time: str | None) -> bool:
+    """Check if a scrape is due based on cron expression and last scrape time."""
+    if last_scrape_time is None:
+        return True  # Never scraped, always due
+    last = datetime.fromisoformat(last_scrape_time)
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    cron = croniter(cron_expr, last)
+    next_run = cron.get_next(datetime)
+    return now >= next_run
+
+
+def run_user_scrape(user_id: int):
+    """Run a full scrape for a specific user."""
+    logger.info(f"Starting scrape for user {user_id}...")
     config = Config()
     db = Database(config.DATABASE_PATH)
     db.initialize()
 
-    status = db.get_config("cookie_test")
-    if status != "pending":
-        db.close()
-        return
+    run_id = db.insert_scrape_run(user_id)
 
-    logger.info("Cookie test requested, validating session...")
-    db.set_config("cookie_test", "running")
+    # Attach DB log handler to capture all logs for this run
+    db_handler = DbLogHandler(lambda line: db.append_scrape_run_log(run_id, line))
+    root_logger = logging.getLogger()
+    root_logger.addHandler(db_handler)
+
+    try:
+        cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+        cookies = cookie_mgr.get_cookies(user_id)
+
+        digest = DigestBuilder(
+            resend_api_key=config.RESEND_API_KEY,
+            base_url=config.BASE_URL,
+            media_path=config.MEDIA_PATH,
+        )
+
+        if not cookies:
+            logger.warning(f"No cookies configured for user {user_id}. Skipping.")
+            db.finish_scrape_run(run_id, "error", error="No cookies configured")
+            return
+
+        ig = InstagramClient(cookies)
+        downloader = MediaDownloader(config.MEDIA_PATH)
+        scraper = Scraper(db=db, ig_client=ig, downloader=downloader, user_id=user_id)
+
+        total_posts, total_stories = scraper.scrape_all()
+        db.finish_scrape_run(run_id, "success", total_posts, total_stories)
+        logger.info(f"Scrape complete for user {user_id}: {total_posts} posts, {total_stories} stories")
+
+        # Check for pending DMs
+        pending_dms = ig.get_pending_dm_count()
+        if pending_dms > 0:
+            logger.info(f"Pending DMs for user {user_id}: {pending_dms}")
+
+        # --- Facebook scraping ---
+        new_fb_posts = 0
+        fb_cookies = cookie_mgr.get_fb_cookies(user_id)
+        if fb_cookies:
+            from src.facebook import FacebookClient
+            fb = FacebookClient(fb_cookies)
+            fb_session_ok = fb.validate_session()
+            if fb_session_ok is None:
+                logger.warning(f"FB rate limited during validation for user {user_id}, skipping FB this run.")
+            elif not fb_session_ok:
+                logger.warning(f"FB cookies are stale for user {user_id}!")
+                cookie_mgr.mark_fb_stale(user_id)
+            else:
+                scraper.fb = fb
+                new_fb_posts = scraper.scrape_all_fb_groups()
+                logger.info(f"FB scrape complete for user {user_id}: {new_fb_posts} new posts")
+        else:
+            logger.info(f"No FB cookies for user {user_id}, skipping Facebook scraping.")
+
+        # Send per-user digest email
+        total_new = total_posts + total_stories + new_fb_posts
+        email_recipient = db.get_user_config(user_id, "email_recipient")
+        if email_recipient and (total_new > 0 or pending_dms > 0):
+            run_info = db.get_scrape_run(run_id)
+            new_posts = db.get_new_posts_since(user_id, run_info["started_at"])
+            for post in new_posts:
+                post["media"] = db.get_media_for_post(post["id"])
+            new_fb = db.get_new_fb_posts_since(user_id, run_info["started_at"])
+            html, attachments = digest.build_html(new_posts, new_fb, pending_dms=pending_dms)
+            digest.send(email_recipient, html, total_new, attachments=attachments, pending_dms=pending_dms)
+            logger.info(f"Digest email sent for user {user_id}.")
+
+    except SessionExpiredError:
+        logger.warning(f"Session expired during scrape for user {user_id} — cookies need refresh")
+        cookie_mgr.mark_stale(user_id)
+        db.finish_scrape_run(run_id, "error", error="Session expired — update cookies")
+        email_recipient = db.get_user_config(user_id, "email_recipient")
+        if email_recipient:
+            try:
+                digest.send_stale_cookies_alert(email_recipient)
+            except Exception as e:
+                logger.error(f"Failed to send stale cookies alert for user {user_id}: {e}")
+    except Exception as e:
+        logger.error(f"Scrape failed for user {user_id}: {e}")
+        db.finish_scrape_run(run_id, "error", error=str(e))
+    finally:
+        root_logger.removeHandler(db_handler)
+        db.close()
+
+
+def check_due_scrapes():
+    """Check all active users and run scrapes for those whose cron schedule is due."""
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    try:
+        users = db.get_all_active_users()
+        for user in users:
+            user_id = user["id"]
+            cron_schedule = db.get_user_config(user_id, "cron_schedule") or "0 8 * * *"
+            last_scrape = db.get_last_scrape_time(user_id)
+
+            if is_scrape_due(cron_schedule, last_scrape):
+                logger.info(f"Scrape due for user {user_id} (cron={cron_schedule}, last={last_scrape})")
+                db.close()
+                run_user_scrape(user_id)
+                # Re-open db for next user
+                db._conn = None
+                db.initialize()
+    finally:
+        db.close()
+
+
+def check_user_cookie_tests():
+    """Check all active users for pending IG or FB cookie tests."""
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    try:
+        users = db.get_all_active_users()
+        for user in users:
+            user_id = user["id"]
+
+            # IG cookie test
+            status = db.get_user_config(user_id, "cookie_test")
+            if status == "pending":
+                _run_ig_cookie_test(user_id, config, db)
+
+            # FB cookie test
+            fb_status = db.get_user_config(user_id, "fb_cookie_test")
+            if fb_status == "pending":
+                _run_fb_cookie_test(user_id, config, db)
+    finally:
+        db.close()
+
+
+def _run_ig_cookie_test(user_id: int, config: Config, db: Database):
+    """Run an Instagram cookie test for a specific user."""
+    logger.info(f"Cookie test requested for user {user_id}, validating session...")
+    db.set_user_config(user_id, "cookie_test", "running")
     log_lines = []
 
     def log(msg):
         log_lines.append(msg)
-        db.set_config("cookie_test_log", "\n".join(log_lines))
-        logger.info(f"[cookie_test] {msg}")
+        db.set_user_config(user_id, "cookie_test_log", "\n".join(log_lines))
+        logger.info(f"[cookie_test user={user_id}] {msg}")
 
     log("Loading cookies from database...")
     cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
-    cookies = cookie_mgr.get_cookies()
+    cookies = cookie_mgr.get_cookies(user_id)
 
     if not cookies:
         log("ERROR: No cookies configured.")
-        db.set_config("cookie_test", "error:No cookies configured")
-        db.close()
+        db.set_user_config(user_id, "cookie_test", "error:No cookies configured")
         return
 
     has_session = bool(cookies.get("sessionid"))
@@ -160,8 +217,7 @@ def check_cookie_test():
 
     if not has_session:
         log("ERROR: sessionid cookie is required.")
-        db.set_config("cookie_test", "error:sessionid cookie missing")
-        db.close()
+        db.set_user_config(user_id, "cookie_test", "error:sessionid cookie missing")
         return
 
     log("Creating Instagram client...")
@@ -192,46 +248,35 @@ def check_cookie_test():
 
     if session_ok is None:
         log("RESULT: Rate limited by Instagram. Try again in 10-15 minutes.")
-        db.set_config("cookie_test", "error:Rate limited, try again later")
+        db.set_user_config(user_id, "cookie_test", "error:Rate limited, try again later")
     elif session_ok:
         log("Session is valid! Fetching username...")
         username = ig.get_logged_in_username()
         log(f"RESULT: Cookies valid — logged in as @{username}")
-        db.set_config("cookie_test", f"valid:{username}")
+        db.set_user_config(user_id, "cookie_test", f"valid:{username}")
     else:
         log("RESULT: Cookies are stale or invalid. Re-sync from browser.")
-        db.set_config("cookie_test", "error:Cookies are stale or invalid")
-
-    db.close()
+        db.set_user_config(user_id, "cookie_test", "error:Cookies are stale or invalid")
 
 
-def check_fb_cookie_test():
-    config = Config()
-    db = Database(config.DATABASE_PATH)
-    db.initialize()
-
-    status = db.get_config("fb_cookie_test")
-    if status != "pending":
-        db.close()
-        return
-
-    logger.info("FB cookie test requested, validating session...")
-    db.set_config("fb_cookie_test", "running")
+def _run_fb_cookie_test(user_id: int, config: Config, db: Database):
+    """Run a Facebook cookie test for a specific user."""
+    logger.info(f"FB cookie test requested for user {user_id}, validating session...")
+    db.set_user_config(user_id, "fb_cookie_test", "running")
     log_lines = []
 
     def log(msg):
         log_lines.append(msg)
-        db.set_config("fb_cookie_test_log", "\n".join(log_lines))
-        logger.info(f"[fb_cookie_test] {msg}")
+        db.set_user_config(user_id, "fb_cookie_test_log", "\n".join(log_lines))
+        logger.info(f"[fb_cookie_test user={user_id}] {msg}")
 
     log("Loading FB cookies from database...")
     cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
-    cookies = cookie_mgr.get_fb_cookies()
+    cookies = cookie_mgr.get_fb_cookies(user_id)
 
     if not cookies:
         log("ERROR: No FB cookies configured.")
-        db.set_config("fb_cookie_test", "error:No FB cookies configured")
-        db.close()
+        db.set_user_config(user_id, "fb_cookie_test", "error:No FB cookies configured")
         return
 
     has_c_user = bool(cookies.get("c_user"))
@@ -240,8 +285,7 @@ def check_fb_cookie_test():
 
     if not has_c_user or not has_xs:
         log("ERROR: c_user and xs cookies are required.")
-        db.set_config("fb_cookie_test", "error:Required cookies missing (c_user, xs)")
-        db.close()
+        db.set_user_config(user_id, "fb_cookie_test", "error:Required cookies missing (c_user, xs)")
         return
 
     log("Creating Facebook client...")
@@ -254,86 +298,135 @@ def check_fb_cookie_test():
         session_ok = fb.validate_session()
     except Exception as e:
         log(f"ERROR: {e}")
-        db.set_config("fb_cookie_test", f"error:{e}")
-        db.close()
+        db.set_user_config(user_id, "fb_cookie_test", f"error:{e}")
         return
 
     if session_ok is None:
         log("RESULT: Rate limited by Facebook. Try again later.")
-        db.set_config("fb_cookie_test", "error:Rate limited, try again later")
+        db.set_user_config(user_id, "fb_cookie_test", "error:Rate limited, try again later")
     elif session_ok:
         log(f"RESULT: FB cookies valid — logged in as user {cookies.get('c_user', 'unknown')}")
-        db.set_config("fb_cookie_test", f"valid:{cookies.get('c_user', 'unknown')}")
+        db.set_user_config(user_id, "fb_cookie_test", f"valid:{cookies.get('c_user', 'unknown')}")
     else:
         log("RESULT: FB cookies are stale or invalid. Re-sync from browser.")
-        db.set_config("fb_cookie_test", "error:FB cookies are stale or invalid")
-
-    db.close()
+        db.set_user_config(user_id, "fb_cookie_test", "error:FB cookies are stale or invalid")
 
 
-def check_manual_runs():
+def check_user_manual_runs():
+    """Check all active users for pending manual runs."""
     config = Config()
     db = Database(config.DATABASE_PATH)
     db.initialize()
-
-    run = db.get_pending_manual_run()
-    if not run:
-        db.close()
-        return
-
-    run_id = run["id"]
-    since_date = run["since_date"]
-    logger.info(f"Starting manual run #{run_id} (since {since_date})...")
-    db.start_manual_run(run_id)
-
-    # Attach DB log handler for this run
-    db_handler = DbLogHandler(lambda line: db.append_manual_run_log(run_id, line))
-    root_logger = logging.getLogger()
-    root_logger.addHandler(db_handler)
 
     try:
-        cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
-        cookies = cookie_mgr.get_cookies()
+        users = db.get_all_active_users()
+        for user in users:
+            user_id = user["id"]
+            run = db.get_pending_manual_run(user_id)
+            if not run:
+                continue
 
-        if not cookies:
-            logger.warning("No cookies for manual run.")
-            db.finish_manual_run(run_id, "error", error="No cookies configured")
-            return
+            run_id = run["id"]
+            since_date = run["since_date"]
+            logger.info(f"Starting manual run #{run_id} for user {user_id} (since {since_date})...")
+            db.start_manual_run(run_id)
 
-        ig = InstagramClient(cookies)
-        downloader = MediaDownloader(config.MEDIA_PATH)
-        scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
+            # Attach DB log handler for this run
+            db_handler = DbLogHandler(lambda line, rid=run_id: db.append_manual_run_log(rid, line))
+            root_logger = logging.getLogger()
+            root_logger.addHandler(db_handler)
 
-        total_posts, total_stories = scraper.scrape_all_backfill(since_date)
-        db.finish_manual_run(run_id, "success", total_posts, total_stories)
-        logger.info(f"Manual run #{run_id} complete: {total_posts} posts, {total_stories} stories")
-    except SessionExpiredError:
-        logger.warning(f"Session expired during manual run #{run_id}")
-        cookie_mgr.mark_stale()
-        db.finish_manual_run(run_id, "error", error="Session expired — update cookies")
-    except Exception as e:
-        logger.error(f"Manual run #{run_id} failed: {e}")
-        db.finish_manual_run(run_id, "error", error=str(e))
+            try:
+                cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+                cookies = cookie_mgr.get_cookies(user_id)
+
+                if not cookies:
+                    logger.warning(f"No cookies for manual run #{run_id}, user {user_id}.")
+                    db.finish_manual_run(run_id, "error", error="No cookies configured")
+                    continue
+
+                ig = InstagramClient(cookies)
+                downloader = MediaDownloader(config.MEDIA_PATH)
+                scraper = Scraper(db=db, ig_client=ig, downloader=downloader, user_id=user_id)
+
+                total_posts, total_stories = scraper.scrape_all_backfill(since_date)
+                db.finish_manual_run(run_id, "success", total_posts, total_stories)
+                logger.info(f"Manual run #{run_id} complete for user {user_id}: {total_posts} posts, {total_stories} stories")
+            except SessionExpiredError:
+                logger.warning(f"Session expired during manual run #{run_id} for user {user_id}")
+                cookie_mgr.mark_stale(user_id)
+                db.finish_manual_run(run_id, "error", error="Session expired — update cookies")
+            except Exception as e:
+                logger.error(f"Manual run #{run_id} failed for user {user_id}: {e}")
+                db.finish_manual_run(run_id, "error", error=str(e))
+            finally:
+                root_logger.removeHandler(db_handler)
     finally:
-        root_logger.removeHandler(db_handler)
         db.close()
 
 
-def run_ig_scrape():
-    """Run only the Instagram scrape portion."""
-    logger.info("Starting IG-only scrape...")
+def check_user_triggers():
+    """Check all active users for pending triggered scrapes (IG, FB, or full)."""
     config = Config()
     db = Database(config.DATABASE_PATH)
     db.initialize()
 
-    run_id = db.insert_scrape_run()
+    try:
+        users = db.get_all_active_users()
+        for user in users:
+            user_id = user["id"]
+
+            # Full scrape trigger
+            trigger = db.get_user_config(user_id, "trigger_scrape")
+            if trigger == "pending":
+                logger.info(f"Manual scrape trigger for user {user_id}...")
+                db.set_user_config(user_id, "trigger_scrape", "running")
+                db.close()
+                run_user_scrape(user_id)
+                db._conn = None
+                db.initialize()
+                db.set_user_config(user_id, "trigger_scrape", "done")
+
+            # IG-only trigger
+            ig_trigger = db.get_user_config(user_id, "trigger_ig_scrape")
+            if ig_trigger == "pending":
+                logger.info(f"Manual IG scrape trigger for user {user_id}...")
+                db.set_user_config(user_id, "trigger_ig_scrape", "running")
+                db.close()
+                _run_ig_only_scrape(user_id)
+                db._conn = None
+                db.initialize()
+                db.set_user_config(user_id, "trigger_ig_scrape", "done")
+
+            # FB-only trigger
+            fb_trigger = db.get_user_config(user_id, "trigger_fb_scrape")
+            if fb_trigger == "pending":
+                logger.info(f"Manual FB scrape trigger for user {user_id}...")
+                db.set_user_config(user_id, "trigger_fb_scrape", "running")
+                db.close()
+                _run_fb_only_scrape(user_id)
+                db._conn = None
+                db.initialize()
+                db.set_user_config(user_id, "trigger_fb_scrape", "done")
+    finally:
+        db.close()
+
+
+def _run_ig_only_scrape(user_id: int):
+    """Run only the Instagram scrape portion for a specific user."""
+    logger.info(f"Starting IG-only scrape for user {user_id}...")
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    run_id = db.insert_scrape_run(user_id)
     db_handler = DbLogHandler(lambda line: db.append_scrape_run_log(run_id, line))
     root_logger = logging.getLogger()
     root_logger.addHandler(db_handler)
 
     try:
         cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
-        cookies = cookie_mgr.get_cookies()
+        cookies = cookie_mgr.get_cookies(user_id)
         digest = DigestBuilder(
             resend_api_key=config.RESEND_API_KEY,
             base_url=config.BASE_URL,
@@ -341,101 +434,63 @@ def run_ig_scrape():
         )
 
         if not cookies:
-            logger.warning("No IG cookies configured. Skipping.")
+            logger.warning(f"No IG cookies for user {user_id}. Skipping.")
             db.finish_scrape_run(run_id, "error", error="No IG cookies configured")
             return
 
         ig = InstagramClient(cookies)
         downloader = MediaDownloader(config.MEDIA_PATH)
-        scraper = Scraper(db=db, ig_client=ig, downloader=downloader)
+        scraper = Scraper(db=db, ig_client=ig, downloader=downloader, user_id=user_id)
 
         total_posts, total_stories = scraper.scrape_all()
         db.finish_scrape_run(run_id, "success", total_posts, total_stories)
-        logger.info(f"IG scrape complete: {total_posts} posts, {total_stories} stories")
+        logger.info(f"IG scrape complete for user {user_id}: {total_posts} posts, {total_stories} stories")
 
         # Check for pending DMs
         pending_dms = ig.get_pending_dm_count()
         if pending_dms > 0:
-            logger.info(f"Pending DMs: {pending_dms}")
+            logger.info(f"Pending DMs for user {user_id}: {pending_dms}")
 
         total_new = total_posts + total_stories
-        if (total_new > 0 or pending_dms > 0) and config.EMAIL_RECIPIENT:
+        email_recipient = db.get_user_config(user_id, "email_recipient")
+        if email_recipient and (total_new > 0 or pending_dms > 0):
             run_info = db.get_scrape_run(run_id)
-            new_posts = db.get_new_posts_since(run_info["started_at"])
+            new_posts = db.get_new_posts_since(user_id, run_info["started_at"])
             for post in new_posts:
                 post["media"] = db.get_media_for_post(post["id"])
             html, attachments = digest.build_html(new_posts, pending_dms=pending_dms)
-            digest.send(config.EMAIL_RECIPIENT, html, total_new, attachments=attachments, pending_dms=pending_dms)
-            logger.info("Digest email sent.")
+            digest.send(email_recipient, html, total_new, attachments=attachments, pending_dms=pending_dms)
+            logger.info(f"Digest email sent for user {user_id}.")
     except SessionExpiredError:
-        logger.warning("Session expired during IG scrape — cookies need refresh")
-        cookie_mgr.mark_stale()
+        logger.warning(f"Session expired during IG scrape for user {user_id}")
+        cookie_mgr.mark_stale(user_id)
         db.finish_scrape_run(run_id, "error", error="Session expired — update cookies")
     except Exception as e:
-        logger.error(f"IG scrape failed: {e}")
+        logger.error(f"IG scrape failed for user {user_id}: {e}")
         db.finish_scrape_run(run_id, "error", error=str(e))
     finally:
         root_logger.removeHandler(db_handler)
         db.close()
 
 
-def check_fb_group_resolve():
-    """Resolve placeholder group names by fetching from Facebook."""
+def _run_fb_only_scrape(user_id: int):
+    """Run only the Facebook scrape portion for a specific user."""
+    logger.info(f"Starting FB-only scrape for user {user_id}...")
     config = Config()
     db = Database(config.DATABASE_PATH)
     db.initialize()
 
-    status = db.get_config("fb_group_resolve")
-    if status != "pending":
-        db.close()
-        return
-
-    db.set_config("fb_group_resolve", "running")
-
-    cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
-    fb_cookies = cookie_mgr.get_fb_cookies()
-    if not fb_cookies:
-        logger.warning("Cannot resolve FB group names: no FB cookies")
-        db.set_config("fb_group_resolve", "done")
-        db.close()
-        return
-
-    from src.facebook import FacebookClient
-    fb = FacebookClient(fb_cookies)
-
-    groups = db.get_all_fb_groups()
-    for group in groups:
-        if group["name"].startswith("Group "):
-            try:
-                real_name = fb.get_group_name(group["group_id"])
-                if real_name and not real_name.startswith("Group "):
-                    db.upsert_fb_group(group["group_id"], real_name, group["url"])
-                    logger.info(f"Resolved FB group {group['group_id']} -> {real_name}")
-            except Exception as e:
-                logger.warning(f"Failed to resolve group {group['group_id']}: {e}")
-
-    db.set_config("fb_group_resolve", "done")
-    db.close()
-
-
-def run_fb_scrape():
-    """Run only the Facebook scrape portion."""
-    logger.info("Starting FB-only scrape...")
-    config = Config()
-    db = Database(config.DATABASE_PATH)
-    db.initialize()
-
-    run_id = db.insert_scrape_run()
+    run_id = db.insert_scrape_run(user_id)
     db_handler = DbLogHandler(lambda line: db.append_scrape_run_log(run_id, line))
     root_logger = logging.getLogger()
     root_logger.addHandler(db_handler)
 
     try:
         cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
-        fb_cookies = cookie_mgr.get_fb_cookies()
+        fb_cookies = cookie_mgr.get_fb_cookies(user_id)
 
         if not fb_cookies:
-            logger.warning("No FB cookies configured. Skipping.")
+            logger.warning(f"No FB cookies for user {user_id}. Skipping.")
             db.finish_scrape_run(run_id, "error", error="No FB cookies configured")
             return
 
@@ -443,94 +498,74 @@ def run_fb_scrape():
         fb = FacebookClient(fb_cookies)
         fb_session_ok = fb.validate_session()
         if fb_session_ok is None:
-            logger.warning("FB rate limited during validation, skipping.")
+            logger.warning(f"FB rate limited during validation for user {user_id}, skipping.")
             db.finish_scrape_run(run_id, "error", error="FB rate limited during validation")
             return
         if not fb_session_ok:
-            logger.warning("FB cookies are stale!")
-            cookie_mgr.mark_fb_stale()
+            logger.warning(f"FB cookies are stale for user {user_id}!")
+            cookie_mgr.mark_fb_stale(user_id)
             db.finish_scrape_run(run_id, "error", error="FB cookies are stale")
             return
 
-        scraper = Scraper(db=db, ig_client=None, downloader=None, fb_client=fb)
+        scraper = Scraper(db=db, ig_client=None, downloader=None, user_id=user_id, fb_client=fb)
         new_fb_posts = scraper.scrape_all_fb_groups()
         db.finish_scrape_run(run_id, "success", 0, 0)
-        logger.info(f"FB scrape complete: {new_fb_posts} new posts")
+        logger.info(f"FB scrape complete for user {user_id}: {new_fb_posts} new posts")
     except Exception as e:
-        logger.error(f"FB scrape failed: {e}")
+        logger.error(f"FB scrape failed for user {user_id}: {e}")
         db.finish_scrape_run(run_id, "error", error=str(e))
     finally:
         root_logger.removeHandler(db_handler)
         db.close()
 
 
-def check_trigger_scrape():
+def check_user_fb_group_resolve():
+    """Resolve placeholder FB group names for all active users."""
     config = Config()
     db = Database(config.DATABASE_PATH)
     db.initialize()
 
-    status = db.get_config("trigger_scrape")
-    if status != "pending":
+    try:
+        users = db.get_all_active_users()
+        for user in users:
+            user_id = user["id"]
+            status = db.get_user_config(user_id, "fb_group_resolve")
+            if status != "pending":
+                continue
+
+            db.set_user_config(user_id, "fb_group_resolve", "running")
+
+            cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+            fb_cookies = cookie_mgr.get_fb_cookies(user_id)
+            if not fb_cookies:
+                logger.warning(f"Cannot resolve FB group names for user {user_id}: no FB cookies")
+                db.set_user_config(user_id, "fb_group_resolve", "done")
+                continue
+
+            from src.facebook import FacebookClient
+            fb = FacebookClient(fb_cookies)
+
+            groups = db.get_all_fb_groups(user_id)
+            for group in groups:
+                if group["name"].startswith("Group "):
+                    try:
+                        real_name = fb.get_group_name(group["group_id"])
+                        if real_name and not real_name.startswith("Group "):
+                            db.upsert_fb_group(user_id, group["group_id"], real_name, group["url"])
+                            logger.info(f"Resolved FB group {group['group_id']} -> {real_name} for user {user_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to resolve group {group['group_id']} for user {user_id}: {e}")
+
+            db.set_user_config(user_id, "fb_group_resolve", "done")
+    finally:
         db.close()
-        return
-
-    logger.info("Manual scrape trigger detected, starting scrape...")
-    db.set_config("trigger_scrape", "running")
-    db.close()
-
-    run_scrape()
-
-    db = Database(config.DATABASE_PATH)
-    db.initialize()
-    db.set_config("trigger_scrape", "done")
-    db.close()
 
 
-def check_trigger_ig_scrape():
-    config = Config()
-    db = Database(config.DATABASE_PATH)
-    db.initialize()
-
-    status = db.get_config("trigger_ig_scrape")
-    if status != "pending":
-        db.close()
-        return
-
-    logger.info("Manual IG scrape trigger detected...")
-    db.set_config("trigger_ig_scrape", "running")
-    db.close()
-
-    run_ig_scrape()
-
-    db = Database(config.DATABASE_PATH)
-    db.initialize()
-    db.set_config("trigger_ig_scrape", "done")
-    db.close()
-
-
-def check_trigger_fb_scrape():
-    config = Config()
-    db = Database(config.DATABASE_PATH)
-    db.initialize()
-
-    status = db.get_config("trigger_fb_scrape")
-    if status != "pending":
-        db.close()
-        return
-
-    logger.info("Manual FB scrape trigger detected...")
-    db.set_config("trigger_fb_scrape", "running")
-    db.close()
-
-    run_fb_scrape()
-
-    db = Database(config.DATABASE_PATH)
-    db.initialize()
-    db.set_config("trigger_fb_scrape", "done")
-    db.close()
+_shutdown = False
 
 
 def main():
+    global _shutdown
     config = Config()
 
     db = Database(config.DATABASE_PATH)
@@ -538,80 +573,72 @@ def main():
 
     # Reset stale manual runs from previous crashes
     db.reset_stale_manual_runs()
-
-    if not db.get_config("cron_schedule"):
-        db.set_config("cron_schedule", config.CRON_SCHEDULE)
     db.close()
 
-    db = Database(config.DATABASE_PATH)
-    cron_expr = db.get_config("cron_schedule") or config.CRON_SCHEDULE
-    db.close()
-
-    logger.info(f"Starting scheduler with cron: {cron_expr}")
-
-    scheduler = BlockingScheduler()
-    scheduler.add_job(
-        run_scrape,
-        CronTrigger.from_crontab(cron_expr),
-        id="scrape_job",
-        name="Instagram Scrape",
-        misfire_grace_time=3600,
-    )
-    scheduler.add_job(
-        check_manual_runs,
-        IntervalTrigger(seconds=30),
-        id="manual_run_check",
-        name="Manual Run Check",
-    )
-    scheduler.add_job(
-        check_cookie_test,
-        IntervalTrigger(seconds=10),
-        id="cookie_test_check",
-        name="Cookie Test Check",
-    )
-    scheduler.add_job(
-        check_fb_cookie_test,
-        IntervalTrigger(seconds=10),
-        id="fb_cookie_test_check",
-        name="FB Cookie Test Check",
-    )
-    scheduler.add_job(
-        check_trigger_scrape,
-        IntervalTrigger(seconds=10),
-        id="trigger_scrape_check",
-        name="Trigger Scrape Check",
-    )
-    scheduler.add_job(
-        check_fb_group_resolve,
-        IntervalTrigger(seconds=10),
-        id="fb_group_resolve_check",
-        name="FB Group Resolve Check",
-    )
-    scheduler.add_job(
-        check_trigger_ig_scrape,
-        IntervalTrigger(seconds=10),
-        id="trigger_ig_scrape_check",
-        name="Trigger IG Scrape Check",
-    )
-    scheduler.add_job(
-        check_trigger_fb_scrape,
-        IntervalTrigger(seconds=10),
-        id="trigger_fb_scrape_check",
-        name="Trigger FB Scrape Check",
-    )
-
-    # No initial scrape on startup — wait for cron to avoid burst traffic
-    logger.info("Waiting for scheduled cron to trigger first scrape.")
+    logger.info("Starting per-user polling scheduler...")
 
     def shutdown(signum, frame):
+        global _shutdown
         logger.info("Shutting down...")
-        scheduler.shutdown(wait=False)
-        sys.exit(0)
+        _shutdown = True
 
     signal.signal(signal.SIGTERM, shutdown)
     signal.signal(signal.SIGINT, shutdown)
 
-    scheduler.start()
+    # Track last run times for each polling job
+    last_due_check = 0.0
+    last_cookie_test = 0.0
+    last_manual_run = 0.0
+    last_trigger_check = 0.0
+    last_fb_resolve = 0.0
+
+    while not _shutdown:
+        now = time.monotonic()
+
+        # check_due_scrapes every 60s
+        if now - last_due_check >= 60:
+            last_due_check = now
+            try:
+                check_due_scrapes()
+            except Exception as e:
+                logger.error(f"Error in check_due_scrapes: {e}")
+
+        # check_user_cookie_tests every 10s
+        if now - last_cookie_test >= 10:
+            last_cookie_test = now
+            try:
+                check_user_cookie_tests()
+            except Exception as e:
+                logger.error(f"Error in check_user_cookie_tests: {e}")
+
+        # check_user_manual_runs every 30s
+        if now - last_manual_run >= 30:
+            last_manual_run = now
+            try:
+                check_user_manual_runs()
+            except Exception as e:
+                logger.error(f"Error in check_user_manual_runs: {e}")
+
+        # check_user_triggers every 10s
+        if now - last_trigger_check >= 10:
+            last_trigger_check = now
+            try:
+                check_user_triggers()
+            except Exception as e:
+                logger.error(f"Error in check_user_triggers: {e}")
+
+        # check_user_fb_group_resolve every 10s
+        if now - last_fb_resolve >= 10:
+            last_fb_resolve = now
+            try:
+                check_user_fb_group_resolve()
+            except Exception as e:
+                logger.error(f"Error in check_user_fb_group_resolve: {e}")
+
+        # Sleep briefly to avoid busy-waiting
+        time.sleep(1)
+
+    logger.info("Scheduler stopped.")
 
 
 if __name__ == "__main__":
