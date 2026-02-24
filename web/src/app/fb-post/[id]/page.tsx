@@ -1,11 +1,14 @@
 import { getFbPost, getCommentsForPost } from "@/lib/db";
+import { requireUserId } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 export default async function FbPostPage({ params }: { params: Promise<{ id: string }> }) {
+  let userId: number;
+  try { userId = await requireUserId(); } catch { redirect("/login"); }
   const { id } = await params;
-  const post = getFbPost(id);
+  const post = getFbPost(userId, id);
   if (!post) notFound();
 
   const comments = getCommentsForPost(id);

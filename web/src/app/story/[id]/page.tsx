@@ -1,14 +1,17 @@
 import { getPost, getMediaForPost } from "@/lib/db";
+import { requireUserId } from "@/lib/auth";
 import { MediaCarousel } from "@/components/media-carousel";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
+  let userId: number;
+  try { userId = await requireUserId(); } catch { redirect("/login"); }
   const { id } = await params;
-  const story = getPost(id);
+  const story = getPost(userId, id);
   if (!story) notFound();
 
-  const media = getMediaForPost(id);
+  const media = getMediaForPost(userId, id);
 
   return (
     <div className="max-w-lg mx-auto">

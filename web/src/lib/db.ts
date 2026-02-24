@@ -60,14 +60,14 @@ export function getFeed(userId: number, limit = 20, offset = 0, account?: string
     .all(...params) as Post[];
 }
 
-export function getPost(id: string): Post | undefined {
-  return getDb().prepare("SELECT * FROM posts WHERE id = ?").get(id) as Post | undefined;
+export function getPost(userId: number, id: string): Post | undefined {
+  return getDb().prepare("SELECT * FROM posts WHERE user_id = ? AND id = ?").get(userId, id) as Post | undefined;
 }
 
-export function getMediaForPost(postId: string): Media[] {
+export function getMediaForPost(userId: number, postId: string): Media[] {
   return getDb()
-    .prepare('SELECT * FROM media WHERE post_id = ? ORDER BY "order"')
-    .all(postId) as Media[];
+    .prepare('SELECT m.* FROM media m JOIN posts p ON m.post_id = p.id AND p.user_id = ? WHERE m.post_id = ? ORDER BY m."order"')
+    .all(userId, postId) as Media[];
 }
 
 export function getAccounts(userId: number): Account[] {
@@ -118,8 +118,8 @@ export function getRecentManualRuns(userId: number, limit = 10): ManualRun[] {
     .all(userId, limit) as ManualRun[];
 }
 
-export function getManualRunLog(runId: number): string {
-  const row = getDb().prepare("SELECT log FROM manual_runs WHERE id = ?").get(runId) as { log: string } | undefined;
+export function getManualRunLog(userId: number, runId: number): string {
+  const row = getDb().prepare("SELECT log FROM manual_runs WHERE id = ? AND user_id = ?").get(runId, userId) as { log: string } | undefined;
   return row?.log ?? "";
 }
 
@@ -140,8 +140,8 @@ export function getRecentScrapeRuns(userId: number, limit = 20): ScrapeRun[] {
     .all(userId, limit) as ScrapeRun[];
 }
 
-export function getScrapeRunLog(runId: number): string {
-  const row = getDb().prepare("SELECT log FROM scrape_runs WHERE id = ?").get(runId) as { log: string } | undefined;
+export function getScrapeRunLog(userId: number, runId: number): string {
+  const row = getDb().prepare("SELECT log FROM scrape_runs WHERE id = ? AND user_id = ?").get(runId, userId) as { log: string } | undefined;
   return row?.log ?? "";
 }
 
@@ -210,8 +210,10 @@ export function deleteFbGroup(userId: number, groupId: string): void {
   db.close();
 }
 
-export function getFbPost(postId: string): FbPost | undefined {
-  return getDb().prepare("SELECT * FROM fb_posts WHERE id = ?").get(postId) as FbPost | undefined;
+export function getFbPost(userId: number, postId: string): FbPost | undefined {
+  return getDb().prepare(
+    "SELECT fp.* FROM fb_posts fp JOIN fb_groups fg ON fp.group_id = fg.group_id AND fg.user_id = ? WHERE fp.id = ?"
+  ).get(userId, postId) as FbPost | undefined;
 }
 
 export function getCommentsForPost(postId: string): FbComment[] {

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const posts = getUnifiedFeed(userId, limit, offset, account, type, platform, groupId);
     const enriched = posts.map((post) => {
       if (post.platform === "instagram") {
-        return { ...post, media: getMediaForPost(post.id) };
+        return { ...post, media: getMediaForPost(userId, post.id) };
       }
       // FB posts: attach comments
       return { ...post, comments: getCommentsForPost(post.id) };

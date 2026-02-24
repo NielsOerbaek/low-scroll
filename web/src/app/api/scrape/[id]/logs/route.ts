@@ -6,8 +6,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let userId: number;
   try {
-    await requireUserId();
+    userId = await requireUserId();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -17,6 +18,6 @@ export async function GET(
   if (isNaN(runId)) {
     return NextResponse.json({ error: "Invalid run ID" }, { status: 400 });
   }
-  const log = getManualRunLog(runId);
+  const log = getManualRunLog(userId, runId);
   return NextResponse.json({ log });
 }

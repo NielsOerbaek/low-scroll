@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
   if (logType && logId) {
     const id = Number(logId);
-    const log = logType === "scrape" ? getScrapeRunLog(id) : getManualRunLog(id);
+    const log = logType === "scrape" ? getScrapeRunLog(userId, id) : getManualRunLog(userId, id);
     return NextResponse.json({ log });
   }
 
