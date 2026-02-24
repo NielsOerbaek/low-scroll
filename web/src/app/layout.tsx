@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import { getCurrentUserId } from "@/lib/auth";
+import { isUserAdmin } from "@/lib/db";
 
 const geistMono = Geist_Mono({ subsets: ["latin"] });
 
@@ -24,7 +26,10 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const userId = await getCurrentUserId();
+  const admin = userId ? isUserAdmin(userId) : false;
+
   return (
     <html lang="en">
       <head>
@@ -38,21 +43,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="border-b">
           <div className="h-[2px] bg-gradient-to-r from-[#FEDA77] via-[#DD2A7B] to-[#515BD4]" />
           <nav className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <Link href="/feed" className="flex items-center gap-2">
+            <Link href={userId ? "/feed" : "/"} className="flex items-center gap-2">
               <img src="/icon-192.png" alt="low-scroll" width={28} height={28} />
               <span className="font-semibold text-lg tracking-tight">low-scroll</span>
             </Link>
-            <div className="flex items-center gap-4">
-              <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
-                Settings
-              </Link>
-              <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground">
-                Admin
-              </Link>
-              <a href="/api/auth/logout" className="text-sm text-muted-foreground hover:text-foreground">
-                Logout
-              </a>
-            </div>
+            {userId && (
+              <div className="flex items-center gap-4">
+                <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+                  Settings
+                </Link>
+                {admin && (
+                  <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground">
+                    Admin
+                  </Link>
+                )}
+                <a href="/api/auth/logout" className="text-sm text-muted-foreground hover:text-foreground">
+                  Logout
+                </a>
+              </div>
+            )}
           </nav>
         </header>
         <main className="max-w-5xl mx-auto px-4 py-3">

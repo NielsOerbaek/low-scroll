@@ -74,7 +74,7 @@ export default async function LandingPage() {
             <span className="mt-1 block w-1.5 h-1.5 rounded-full bg-foreground/40 flex-none" />
             Fully open source &mdash;{" "}
             <a
-              href="https://github.com/niec-and-nansen/ig-sub"
+              href="https://github.com/NielsOerbaek/low-scroll"
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-2 hover:text-foreground transition-colors"
@@ -88,7 +88,7 @@ export default async function LandingPage() {
       {/* Footer */}
       <footer className="text-center text-xs text-muted-foreground pt-4 border-t">
         <a
-          href="https://github.com/niec-and-nansen/ig-sub"
+          href="https://github.com/NielsOerbaek/low-scroll"
           target="_blank"
           rel="noopener noreferrer"
           className="underline underline-offset-2 hover:text-foreground transition-colors"

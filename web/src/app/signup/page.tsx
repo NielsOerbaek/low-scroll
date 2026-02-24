@@ -76,12 +76,12 @@ export default function SignupPage() {
             <p>
               Source code:{" "}
               <a
-                href="https://github.com/niec-and-nansen/ig-sub"
+                href="https://github.com/NielsOerbaek/low-scroll"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-foreground underline underline-offset-4 hover:text-primary"
               >
-                github.com/niec-and-nansen/ig-sub
+                github.com/NielsOerbaek/low-scroll
               </a>
             </p>
           </div>
