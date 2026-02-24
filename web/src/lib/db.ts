@@ -247,6 +247,23 @@ export function deleteSession(token: string): void {
   db.close();
 }
 
+// ── Admin ─────────────────────────────────────────────────────
+
+export function getAllUsers(): { id: number; email: string; is_admin: number; is_active: number; created_at: string }[] {
+  return getDb().prepare("SELECT id, email, is_admin, is_active, created_at FROM users ORDER BY created_at DESC").all() as any[];
+}
+
+export function setUserActive(userId: number, active: boolean): void {
+  const db = getWritableDb();
+  db.prepare("UPDATE users SET is_active = ? WHERE id = ?").run(active ? 1 : 0, userId);
+  db.close();
+}
+
+export function isUserAdmin(userId: number): boolean {
+  const row = getDb().prepare("SELECT is_admin FROM users WHERE id = ?").get(userId) as { is_admin: number } | undefined;
+  return row?.is_admin === 1;
+}
+
 // ── Unified Feed ──────────────────────────────────────────────
 
 export function getUnifiedFeed(
