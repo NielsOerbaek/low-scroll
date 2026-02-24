@@ -12,5 +12,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY templates/ ./templates/
 COPY assets/ ./assets/
+COPY seed_admin.py ./
 
 CMD ["python", "-m", "src.main"]
