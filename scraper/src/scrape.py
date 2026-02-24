@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 
 class Scraper:
     def __init__(self, db: Database, ig_client: InstagramClient, downloader: MediaDownloader,
-                 fb_client=None):
+                 user_id: int, fb_client=None):
         self.db = db
         self.ig = ig_client
         self.downloader = downloader
+        self.user_id = user_id
         self.fb = fb_client
 
     def scrape_account(self, username: str, since_date: str | None = None) -> tuple[int, int]:
@@ -37,7 +38,7 @@ class Scraper:
             if was_new:
                 new_stories += 1
 
-        self.db.update_last_checked(username)
+        self.db.update_last_checked(self.user_id, username)
         return new_posts, new_stories
 
     def _process_post(self, post_data: dict, username: str) -> bool:
@@ -57,6 +58,7 @@ class Scraper:
             item["thumbnail_path"] = thumb_path
 
         self.db.insert_post(
+            user_id=self.user_id,
             id=post_id,
             username=username,
             post_type=post_data["post_type"],
@@ -77,7 +79,7 @@ class Scraper:
         return True
 
     def scrape_all_backfill(self, since_date: str) -> tuple[int, int]:
-        accounts = self.db.get_all_accounts()
+        accounts = self.db.get_all_accounts(self.user_id)
         total_posts = 0
         total_stories = 0
 
@@ -97,7 +99,7 @@ class Scraper:
 
     def scrape_all(self) -> tuple[int, int]:
         """Scrape the timeline feed and stories tray instead of per-profile."""
-        accounts = self.db.get_all_accounts()
+        accounts = self.db.get_all_accounts(self.user_id)
         followed = {a["username"] for a in accounts}
         total_posts = 0
         total_stories = 0
@@ -147,9 +149,9 @@ class Scraper:
                 post_id="_profile",
                 order=0,
             )
-            self.db.upsert_account(user["username"], file_path)
+            self.db.upsert_account(self.user_id, user["username"], file_path)
             self.ig.random_delay(3.0, 8.0)
-        self.db.delete_accounts_not_in(following_usernames)
+        self.db.delete_accounts_not_in(self.user_id, following_usernames)
 
     def scrape_fb_group(self, group_id: str) -> int:
         if not self.fb:
@@ -182,13 +184,13 @@ class Scraper:
                     logger.warning(f"Failed to fetch comments for {post['id']}: {e}")
             if was_new:
                 new_count += 1
-        self.db.update_fb_group_last_checked(group_id)
+        self.db.update_fb_group_last_checked(self.user_id, group_id)
         return new_count
 
     def scrape_all_fb_groups(self) -> int:
         if not self.fb:
             return 0
-        groups = self.db.get_all_fb_groups()
+        groups = self.db.get_all_fb_groups(self.user_id)
         total = 0
         for group in groups:
             try:
