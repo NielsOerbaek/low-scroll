@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getConfig, setConfig } from "@/lib/db";
+import { requireUserId } from "@/lib/auth";
+import { getUserConfig, setUserConfig } from "@/lib/db";
+
+function unauthorized() {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
 export async function GET() {
+  let userId: number;
+  try { userId = await requireUserId(); } catch { return unauthorized(); }
+
   try {
-    const cookieStatus = getConfig("ig_cookies_stale");
-    const hasCookies = getConfig("ig_cookies") !== null;
-    const cronSchedule = getConfig("cron_schedule") || "0 8 * * *";
-    const emailRecipient = getConfig("email_recipient") || process.env.EMAIL_RECIPIENT || "";
-    const hasFbCookies = getConfig("fb_cookies") !== null;
-    const fbCookiesStale = getConfig("fb_cookies_stale") === "true";
+    const hasCookies = getUserConfig(userId, "ig_cookies") !== null;
+    const cookieStatus = getUserConfig(userId, "ig_cookies_stale");
+    const cronSchedule = getUserConfig(userId, "cron_schedule") || "0 8 * * *";
+    const emailRecipient = getUserConfig(userId, "email_recipient") || "";
+    const hasFbCookies = getUserConfig(userId, "fb_cookies") !== null;
+    const fbCookiesStale = getUserConfig(userId, "fb_cookies_stale") === "true";
+    const apiKey = getUserConfig(userId, "api_key") || "";
 
     return NextResponse.json({
       hasCookies,
@@ -17,20 +26,25 @@ export async function GET() {
       emailRecipient,
       hasFbCookies,
       fbCookiesStale,
+      apiKey,
     });
   } catch {
     return NextResponse.json({
       hasCookies: false,
       cookiesStale: false,
       cronSchedule: "0 8 * * *",
-      emailRecipient: process.env.EMAIL_RECIPIENT || "",
+      emailRecipient: "",
       hasFbCookies: false,
       fbCookiesStale: false,
+      apiKey: "",
     });
   }
 }
 
 export async function POST(request: NextRequest) {
+  let userId: number;
+  try { userId = await requireUserId(); } catch { return unauthorized(); }
+
   const body = await request.json();
 
   if (body.cookies) {
@@ -42,16 +56,16 @@ export async function POST(request: NextRequest) {
     const { Fernet } = await import("@/lib/fernet");
     const fernet = new Fernet(encryptionKey);
     const encrypted = fernet.encrypt(JSON.stringify(body.cookies));
-    setConfig("ig_cookies", encrypted);
-    setConfig("ig_cookies_stale", "false");
+    setUserConfig(userId, "ig_cookies", encrypted);
+    setUserConfig(userId, "ig_cookies_stale", "false");
   }
 
   if (body.cronSchedule) {
-    setConfig("cron_schedule", body.cronSchedule);
+    setUserConfig(userId, "cron_schedule", body.cronSchedule);
   }
 
   if (body.emailRecipient !== undefined) {
-    setConfig("email_recipient", body.emailRecipient);
+    setUserConfig(userId, "email_recipient", body.emailRecipient);
   }
 
   return NextResponse.json({ ok: true });

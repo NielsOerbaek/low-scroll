@@ -44,11 +44,3 @@ export async function requireUserId(): Promise<number> {
   return userId;
 }
 
-// ── Deprecated — kept temporarily for extension routes (Task 5 will remove) ──
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "changeme";
-
-/** @deprecated Use verifyPassword() with user-specific hashes instead */
-export function validatePassword(password: string): boolean {
-  return password === ADMIN_PASSWORD;
-}

@@ -38,10 +38,10 @@ export interface Media {
   order: number;
 }
 
-export function getFeed(limit = 20, offset = 0, account?: string, type?: string): Post[] {
+export function getFeed(userId: number, limit = 20, offset = 0, account?: string, type?: string): Post[] {
   const db = getDb();
-  const conditions: string[] = [];
-  const params: any[] = [];
+  const conditions: string[] = ["user_id = ?"];
+  const params: any[] = [userId];
 
   if (account) {
     conditions.push("username = ?");
@@ -53,7 +53,7 @@ export function getFeed(limit = 20, offset = 0, account?: string, type?: string)
     conditions.push("type IN ('post', 'reel')");
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const where = `WHERE ${conditions.join(" AND ")}`;
   params.push(limit, offset);
   return db
     .prepare(`SELECT * FROM posts ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`)
@@ -70,24 +70,26 @@ export function getMediaForPost(postId: string): Media[] {
     .all(postId) as Media[];
 }
 
-export function getAccounts(): Account[] {
-  return getDb().prepare("SELECT * FROM accounts ORDER BY username").all() as Account[];
+export function getAccounts(userId: number): Account[] {
+  return getDb().prepare("SELECT * FROM accounts WHERE user_id = ? ORDER BY username").all(userId) as Account[];
 }
 
-export function getConfig(key: string): string | null {
-  const row = getDb().prepare("SELECT value FROM config WHERE key = ?").get(key) as
-    | { value: string }
-    | undefined;
+export function getUserConfig(userId: number, key: string): string | null {
+  const row = getDb().prepare("SELECT value FROM user_config WHERE user_id = ? AND key = ?").get(userId, key) as { value: string } | undefined;
   return row?.value ?? null;
 }
 
-export function setConfig(key: string, value: string): void {
+export function setUserConfig(userId: number, key: string, value: string): void {
   const db = getWritableDb();
-  db.prepare("INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(
-    key,
-    value
-  );
+  db.prepare("INSERT INTO user_config (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value").run(userId, key, value);
   db.close();
+}
+
+export function getUserIdByApiKey(apiKey: string): number | null {
+  const row = getDb().prepare(
+    "SELECT user_id FROM user_config WHERE key = 'api_key' AND value = ?"
+  ).get(apiKey) as { user_id: number } | undefined;
+  return row?.user_id ?? null;
 }
 
 export interface ManualRun {
@@ -103,17 +105,17 @@ export interface ManualRun {
   finished_at: string | null;
 }
 
-export function insertManualRun(sinceDate: string): number {
+export function insertManualRun(userId: number, sinceDate: string): number {
   const db = getWritableDb();
-  const result = db.prepare("INSERT INTO manual_runs (since_date) VALUES (?)").run(sinceDate);
+  const result = db.prepare("INSERT INTO manual_runs (user_id, since_date) VALUES (?, ?)").run(userId, sinceDate);
   db.close();
   return Number(result.lastInsertRowid);
 }
 
-export function getRecentManualRuns(limit = 10): ManualRun[] {
+export function getRecentManualRuns(userId: number, limit = 10): ManualRun[] {
   return getDb()
-    .prepare("SELECT * FROM manual_runs ORDER BY created_at DESC LIMIT ?")
-    .all(limit) as ManualRun[];
+    .prepare("SELECT * FROM manual_runs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?")
+    .all(userId, limit) as ManualRun[];
 }
 
 export function getManualRunLog(runId: number): string {
@@ -132,10 +134,10 @@ export interface ScrapeRun {
   log: string;
 }
 
-export function getRecentScrapeRuns(limit = 20): ScrapeRun[] {
+export function getRecentScrapeRuns(userId: number, limit = 20): ScrapeRun[] {
   return getDb()
-    .prepare("SELECT * FROM scrape_runs ORDER BY started_at DESC LIMIT ?")
-    .all(limit) as ScrapeRun[];
+    .prepare("SELECT * FROM scrape_runs WHERE user_id = ? ORDER BY started_at DESC LIMIT ?")
+    .all(userId, limit) as ScrapeRun[];
 }
 
 export function getScrapeRunLog(runId: number): string {
@@ -184,23 +186,23 @@ export interface UnifiedFeedItem {
   comment_count: number | null;
 }
 
-export function getFbGroups(): FbGroup[] {
-  return getDb().prepare("SELECT * FROM fb_groups ORDER BY name").all() as FbGroup[];
+export function getFbGroups(userId: number): FbGroup[] {
+  return getDb().prepare("SELECT * FROM fb_groups WHERE user_id = ? ORDER BY name").all(userId) as FbGroup[];
 }
 
-export function addFbGroup(groupId: string, name: string, url: string): void {
+export function addFbGroup(userId: number, groupId: string, name: string, url: string): void {
   const db = getWritableDb();
   db.prepare(
-    "INSERT INTO fb_groups (group_id, name, url) VALUES (?, ?, ?) ON CONFLICT(group_id) DO UPDATE SET name=excluded.name, url=excluded.url"
-  ).run(groupId, name, url);
+    "INSERT INTO fb_groups (user_id, group_id, name, url) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, group_id) DO UPDATE SET name=excluded.name, url=excluded.url"
+  ).run(userId, groupId, name, url);
   db.close();
 }
 
-export function deleteFbGroup(groupId: string): void {
+export function deleteFbGroup(userId: number, groupId: string): void {
   const db = getWritableDb();
   db.prepare("DELETE FROM fb_comments WHERE post_id IN (SELECT id FROM fb_posts WHERE group_id=?)").run(groupId);
   db.prepare("DELETE FROM fb_posts WHERE group_id=?").run(groupId);
-  db.prepare("DELETE FROM fb_groups WHERE group_id=?").run(groupId);
+  db.prepare("DELETE FROM fb_groups WHERE user_id = ? AND group_id=?").run(userId, groupId);
   db.close();
 }
 
@@ -241,27 +243,10 @@ export function deleteSession(token: string): void {
   db.close();
 }
 
-export function getUserConfig(userId: number, key: string): string | null {
-  const row = getDb().prepare("SELECT value FROM user_config WHERE user_id = ? AND key = ?").get(userId, key) as { value: string } | undefined;
-  return row?.value ?? null;
-}
-
-export function setUserConfig(userId: number, key: string, value: string): void {
-  const db = getWritableDb();
-  db.prepare("INSERT INTO user_config (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value").run(userId, key, value);
-  db.close();
-}
-
-export function getUserIdByApiKey(apiKey: string): number | null {
-  const row = getDb().prepare(
-    "SELECT user_id FROM user_config WHERE key = 'api_key' AND value = ?"
-  ).get(apiKey) as { user_id: number } | undefined;
-  return row?.user_id ?? null;
-}
-
 // ── Unified Feed ──────────────────────────────────────────────
 
 export function getUnifiedFeed(
+  userId: number,
   limit = 20,
   offset = 0,
   account?: string,
@@ -272,8 +257,8 @@ export function getUnifiedFeed(
   const db = getDb();
 
   // Build IG conditions
-  const igConditions: string[] = [];
-  const igParams: any[] = [];
+  const igConditions: string[] = ["p.user_id = ?"];
+  const igParams: any[] = [userId];
   if (account) {
     igConditions.push("p.username = ?");
     igParams.push(account);
@@ -290,8 +275,8 @@ export function getUnifiedFeed(
   }
 
   // Build FB conditions
-  const fbConditions: string[] = [];
-  const fbParams: any[] = [];
+  const fbConditions: string[] = ["fg.user_id = ?"];
+  const fbParams: any[] = [userId];
   if (groupId) {
     fbConditions.push("fp.group_id = ?");
     fbParams.push(groupId);
@@ -306,8 +291,8 @@ export function getUnifiedFeed(
     fbConditions.push("1=0");
   }
 
-  const igWhere = igConditions.length > 0 ? `WHERE ${igConditions.join(" AND ")}` : "";
-  const fbWhere = fbConditions.length > 0 ? `WHERE ${fbConditions.join(" AND ")}` : "";
+  const igWhere = `WHERE ${igConditions.join(" AND ")}`;
+  const fbWhere = `WHERE ${fbConditions.join(" AND ")}`;
 
   const sql = `
     SELECT p.id, p.username AS source_name, p.type, p.caption AS content, p.timestamp, p.permalink,
