@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserId } from "@/lib/auth";
 import { getUnifiedFeed, getMediaForPost, getCommentsForPost } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
+  let userId: number;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20") || 20));
   const offset = Math.max(0, parseInt(searchParams.get("offset") || "0") || 0);
@@ -11,7 +19,7 @@ export async function GET(request: NextRequest) {
   const groupId = searchParams.get("groupId") || undefined;
 
   try {
-    const posts = getUnifiedFeed(limit, offset, account, type, platform, groupId);
+    const posts = getUnifiedFeed(userId, limit, offset, account, type, platform, groupId);
     const enriched = posts.map((post) => {
       if (post.platform === "instagram") {
         return { ...post, media: getMediaForPost(post.id) };

@@ -14,12 +14,13 @@ def env():
         os.makedirs(media_dir)
         db = Database(db_path)
         db.initialize()
-        yield db, media_dir
+        user_id = db.insert_user("test@example.com", "hashedpassword")
+        yield db, media_dir, user_id
 
 
 def test_scrape_account_stores_posts(env):
-    db, media_dir = env
-    db.upsert_account("testuser", None)
+    db, media_dir, user_id = env
+    db.upsert_account(user_id, "testuser", None)
 
     mock_ig = MagicMock()
     mock_ig.get_user_posts.return_value = [
@@ -37,7 +38,7 @@ def test_scrape_account_stores_posts(env):
     mock_downloader = MagicMock()
     mock_downloader.download_with_thumbnail.return_value = ("testuser/p1/0.jpg", "testuser/p1/0_thumb.jpg")
 
-    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader)
+    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader, user_id=user_id)
     new_posts, new_stories = scraper.scrape_account("testuser")
 
     assert new_posts == 1
@@ -46,9 +47,10 @@ def test_scrape_account_stores_posts(env):
 
 
 def test_scrape_account_skips_existing_posts(env):
-    db, media_dir = env
-    db.upsert_account("testuser", None)
-    db.insert_post("p1", "testuser", "post", "Old", "2026-01-01T00:00:00", "")
+    db, media_dir, user_id = env
+    db.upsert_account(user_id, "testuser", None)
+    db.insert_post(user_id=user_id, id="p1", username="testuser", post_type="post",
+                   caption="Old", timestamp="2026-01-01T00:00:00", permalink="")
 
     mock_ig = MagicMock()
     mock_ig.get_user_posts.return_value = [
@@ -64,7 +66,7 @@ def test_scrape_account_skips_existing_posts(env):
     mock_ig.get_user_stories.return_value = []
     mock_downloader = MagicMock()
 
-    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader)
+    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader, user_id=user_id)
     new_posts, new_stories = scraper.scrape_account("testuser")
 
     assert new_posts == 0
@@ -72,9 +74,9 @@ def test_scrape_account_skips_existing_posts(env):
 
 
 def test_scrape_all_returns_totals(env):
-    db, media_dir = env
-    db.upsert_account("user1", None)
-    db.upsert_account("user2", None)
+    db, media_dir, user_id = env
+    db.upsert_account(user_id, "user1", None)
+    db.upsert_account(user_id, "user2", None)
 
     mock_ig = MagicMock()
     mock_ig.get_timeline_feed.return_value = [
@@ -112,7 +114,7 @@ def test_scrape_all_returns_totals(env):
     mock_downloader = MagicMock()
     mock_downloader.download_with_thumbnail.return_value = ("path", None)
 
-    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader)
+    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader, user_id=user_id)
 
     total_posts, total_stories = scraper.scrape_all()
     assert total_posts == 1  # only user1's post, not stranger's
@@ -120,8 +122,8 @@ def test_scrape_all_returns_totals(env):
 
 
 def test_scrape_account_backfill_filters_by_date(env):
-    db, media_dir = env
-    db.upsert_account("testuser", None)
+    db, media_dir, user_id = env
+    db.upsert_account(user_id, "testuser", None)
 
     mock_ig = MagicMock()
     mock_ig.get_user_posts.return_value = [
@@ -145,7 +147,7 @@ def test_scrape_account_backfill_filters_by_date(env):
     mock_ig.get_user_stories.return_value = []
     mock_downloader = MagicMock()
 
-    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader)
+    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader, user_id=user_id)
     new_posts, new_stories = scraper.scrape_account("testuser", since_date="2026-01-01")
 
     assert new_posts == 1
@@ -155,8 +157,8 @@ def test_scrape_account_backfill_filters_by_date(env):
 
 
 def test_scrape_all_backfill(env):
-    db, media_dir = env
-    db.upsert_account("user1", None)
+    db, media_dir, user_id = env
+    db.upsert_account(user_id, "user1", None)
 
     mock_ig = MagicMock()
     mock_ig.get_user_posts.return_value = [
@@ -173,6 +175,6 @@ def test_scrape_all_backfill(env):
     mock_ig.random_delay = MagicMock()
     mock_downloader = MagicMock()
 
-    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader)
+    scraper = Scraper(db=db, ig_client=mock_ig, downloader=mock_downloader, user_id=user_id)
     total_posts, total_stories = scraper.scrape_all_backfill("2026-01-01")
     assert total_posts == 1

@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
+import { requireUserId } from "@/lib/auth";
 import { getRecentScrapeRuns, getRecentManualRuns, getScrapeRunLog, getManualRunLog } from "@/lib/db";
 
 export async function GET(req: Request) {
+  let userId: number;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const logType = searchParams.get("logType"); // "scrape" | "manual"
   const logId = searchParams.get("logId");
@@ -12,12 +20,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ log });
   }
 
-  const scrapeRuns = getRecentScrapeRuns(20).map((r) => ({
+  const scrapeRuns = getRecentScrapeRuns(userId, 20).map((r) => ({
     ...r,
     kind: "scheduled" as const,
   }));
 
-  const manualRuns = getRecentManualRuns(20).map((r) => ({
+  const manualRuns = getRecentManualRuns(userId, 20).map((r) => ({
     id: r.id,
     kind: "manual" as const,
     started_at: r.started_at ?? r.created_at,

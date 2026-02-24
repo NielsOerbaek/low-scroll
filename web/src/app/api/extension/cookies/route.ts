@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validatePassword } from "@/lib/auth";
-import { setConfig } from "@/lib/db";
+import { getUserIdByApiKey, setUserConfig } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { password, cookies } = body;
-
-  if (!password || !validatePassword(password)) {
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+  const { api_key, cookies } = await request.json();
+  const userId = getUserIdByApiKey(api_key);
+  if (!userId) {
+    return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 
   if (!cookies?.sessionid) {
@@ -21,9 +19,8 @@ export async function POST(request: NextRequest) {
 
   const { Fernet } = await import("@/lib/fernet");
   const fernet = new Fernet(encryptionKey);
-  const encrypted = fernet.encrypt(JSON.stringify(cookies));
-  setConfig("ig_cookies", encrypted);
-  setConfig("ig_cookies_stale", "false");
+  setUserConfig(userId, "ig_cookies", fernet.encrypt(JSON.stringify(cookies)));
+  setUserConfig(userId, "ig_cookies_stale", "false");
 
   const res = NextResponse.json({ ok: true });
   res.headers.set("Access-Control-Allow-Origin", "*");

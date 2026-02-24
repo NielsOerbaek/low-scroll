@@ -80,6 +80,29 @@ export function SettingsForm() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
+          <CardTitle>Browser Extension</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Use this API key in the Chrome extension to sync your cookies automatically.
+          </p>
+          <div className="flex gap-2">
+            <Input value={settings.apiKey || ""} readOnly className="font-mono text-xs" />
+            <Button
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(settings.apiKey || "");
+                setMessage("API key copied!");
+              }}
+            >
+              Copy
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Instagram Cookies
             {settings.hasCookies && !settings.cookiesStale && (

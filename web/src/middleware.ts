@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
   const session = request.cookies.get("ig_session");
-  const isLoginPage = request.nextUrl.pathname === "/login";
-  const isAuthApi = request.nextUrl.pathname === "/api/auth";
+  const isPublicPage = request.nextUrl.pathname === "/login"
+    || request.nextUrl.pathname === "/signup"
+    || request.nextUrl.pathname === "/";
+  const isPublicApi = request.nextUrl.pathname === "/api/auth"
+    || request.nextUrl.pathname.startsWith("/api/extension/");
 
-  const isExtensionApi = request.nextUrl.pathname.startsWith("/api/extension/");
-
-  if (isLoginPage || isAuthApi || isExtensionApi) {
+  if (isPublicPage || isPublicApi) {
     return NextResponse.next();
   }
 

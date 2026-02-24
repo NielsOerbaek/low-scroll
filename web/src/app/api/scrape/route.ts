@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserId } from "@/lib/auth";
 import { insertManualRun, getRecentManualRuns } from "@/lib/db";
 
+function unauthorized() {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
 export async function POST(request: NextRequest) {
+  let userId: number;
+  try { userId = await requireUserId(); } catch { return unauthorized(); }
+
   const body = await request.json();
   const sinceDate = body.sinceDate;
 
@@ -20,11 +28,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const id = insertManualRun(sinceDate);
+  const id = insertManualRun(userId, sinceDate);
   return NextResponse.json({ id });
 }
 
 export async function GET() {
-  const runs = getRecentManualRuns(20);
+  let userId: number;
+  try { userId = await requireUserId(); } catch { return unauthorized(); }
+
+  const runs = getRecentManualRuns(userId, 20);
   return NextResponse.json({ runs });
 }
