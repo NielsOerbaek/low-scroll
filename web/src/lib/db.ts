@@ -214,6 +214,53 @@ export function getCommentsForPost(postId: string): FbComment[] {
     .all(postId) as FbComment[];
 }
 
+// ── Users & Sessions ──────────────────────────────────────────
+
+export function createUser(email: string, passwordHash: string): number {
+  const db = getWritableDb();
+  const result = db.prepare(
+    "INSERT INTO users (email, password_hash) VALUES (?, ?)"
+  ).run(email, passwordHash);
+  db.close();
+  return Number(result.lastInsertRowid);
+}
+
+export function getUserByEmail(email: string): { id: number; email: string; password_hash: string; is_admin: number; is_active: number } | undefined {
+  return getDb().prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
+}
+
+export function insertSession(token: string, userId: number, expiresAt: string): void {
+  const db = getWritableDb();
+  db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(token, userId, expiresAt);
+  db.close();
+}
+
+export function deleteSession(token: string): void {
+  const db = getWritableDb();
+  db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+  db.close();
+}
+
+export function getUserConfig(userId: number, key: string): string | null {
+  const row = getDb().prepare("SELECT value FROM user_config WHERE user_id = ? AND key = ?").get(userId, key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setUserConfig(userId: number, key: string, value: string): void {
+  const db = getWritableDb();
+  db.prepare("INSERT INTO user_config (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value").run(userId, key, value);
+  db.close();
+}
+
+export function getUserIdByApiKey(apiKey: string): number | null {
+  const row = getDb().prepare(
+    "SELECT user_id FROM user_config WHERE key = 'api_key' AND value = ?"
+  ).get(apiKey) as { user_id: number } | undefined;
+  return row?.user_id ?? null;
+}
+
+// ── Unified Feed ──────────────────────────────────────────────
+
 export function getUnifiedFeed(
   limit = 20,
   offset = 0,
