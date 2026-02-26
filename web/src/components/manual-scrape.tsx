@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,14 @@ export function ManualScrape() {
   const [triggeringFb, setTriggeringFb] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [fbEnabled, setFbEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => setFbEnabled(data.fbEnabled))
+      .catch(() => {});
+  }, []);
 
   async function triggerBackfill() {
     setSubmitting(true);
@@ -58,9 +66,11 @@ export function ManualScrape() {
           <Button onClick={() => triggerPlatformScrape("ig")} disabled={triggeringIg}>
             {triggeringIg ? "Triggering..." : "Scrape Instagram"}
           </Button>
-          <Button variant="outline" onClick={() => triggerPlatformScrape("fb")} disabled={triggeringFb}>
-            {triggeringFb ? "Triggering..." : "Scrape Facebook"}
-          </Button>
+          {fbEnabled && (
+            <Button variant="outline" onClick={() => triggerPlatformScrape("fb")} disabled={triggeringFb}>
+              {triggeringFb ? "Triggering..." : "Scrape Facebook"}
+            </Button>
+          )}
         </div>
 
         <div className="border-t pt-4">

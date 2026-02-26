@@ -18,6 +18,7 @@ export async function GET() {
     const hasFbCookies = getUserConfig(userId, "fb_cookies") !== null;
     const fbCookiesStale = getUserConfig(userId, "fb_cookies_stale") === "true";
     const apiKey = getUserConfig(userId, "api_key") || "";
+    const fbEnabled = getUserConfig(userId, "fb_enabled") === "true";
 
     return NextResponse.json({
       hasCookies,
@@ -27,6 +28,7 @@ export async function GET() {
       hasFbCookies,
       fbCookiesStale,
       apiKey,
+      fbEnabled,
     });
   } catch {
     return NextResponse.json({
@@ -37,6 +39,7 @@ export async function GET() {
       hasFbCookies: false,
       fbCookiesStale: false,
       apiKey: "",
+      fbEnabled: false,
     });
   }
 }
@@ -66,6 +69,10 @@ export async function POST(request: NextRequest) {
 
   if (body.emailRecipient !== undefined) {
     setUserConfig(userId, "email_recipient", body.emailRecipient);
+  }
+
+  if (body.fbEnabled !== undefined) {
+    setUserConfig(userId, "fb_enabled", body.fbEnabled ? "true" : "false");
   }
 
   return NextResponse.json({ ok: true });

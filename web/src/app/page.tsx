@@ -51,6 +51,51 @@ export default async function LandingPage() {
         </ol>
       </section>
 
+      {/* Browser Extension */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold text-center">
+          Browser Extension
+        </h2>
+        <p className="text-center text-muted-foreground">
+          The Chrome extension automatically syncs your session cookies so low-scroll can fetch your feed.
+        </p>
+        <ol className="space-y-3 text-sm text-muted-foreground">
+          <li className="flex items-start gap-3">
+            <span className="flex-none w-6 h-6 rounded-full border border-foreground/20 flex items-center justify-center text-xs font-bold">
+              1
+            </span>
+            <span className="pt-0.5">
+              Download the{" "}
+              <a
+                href="https://github.com/NielsOerbaek/low-scroll/tree/main/extension"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground transition-colors"
+              >
+                extension folder
+              </a>{" "}
+              from GitHub
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="flex-none w-6 h-6 rounded-full border border-foreground/20 flex items-center justify-center text-xs font-bold">
+              2
+            </span>
+            <span className="pt-0.5">
+              Open <code className="px-1 py-0.5 bg-muted rounded text-xs">chrome://extensions</code>, enable Developer Mode, and click Load unpacked
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="flex-none w-6 h-6 rounded-full border border-foreground/20 flex items-center justify-center text-xs font-bold">
+              3
+            </span>
+            <span className="pt-0.5">
+              Enter your instance URL and API key (from Settings), then click Sync
+            </span>
+          </li>
+        </ol>
+      </section>
+
       {/* Trust & Transparency */}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold text-center">

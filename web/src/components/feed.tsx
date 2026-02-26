@@ -8,19 +8,30 @@ interface FeedProps {
   account?: string;
 }
 
-const TABS = [
+const BASE_TABS = [
   { key: "all", label: "All" },
   { key: "post", label: "Posts" },
   { key: "story", label: "Stories" },
-  { key: "fb_post", label: "Facebook" },
 ] as const;
+
+const FB_TAB = { key: "fb_post", label: "Facebook" } as const;
 
 export function Feed({ account }: FeedProps) {
   const [posts, setPosts] = useState<any[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<string>("all");
+  const [fbEnabled, setFbEnabled] = useState(false);
   const offsetRef = useRef(0);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => setFbEnabled(data.fbEnabled))
+      .catch(() => {});
+  }, []);
+
+  const tabs = fbEnabled ? [...BASE_TABS, FB_TAB] : BASE_TABS;
 
   const loadPosts = useCallback(async (reset = false) => {
     setLoading(true);
@@ -52,7 +63,7 @@ export function Feed({ account }: FeedProps) {
   return (
     <div>
       <div className="flex gap-1 border-b mb-2">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
