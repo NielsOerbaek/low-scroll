@@ -322,9 +322,9 @@ export function getUnifiedFeed(
            'instagram' AS platform, NULL AS comment_count
     FROM posts p ${igWhere}
     UNION ALL
-    SELECT fp.id, g.name AS source_name, 'fb_post' AS type, fp.content, fp.timestamp, fp.permalink,
+    SELECT fp.id, fg.name AS source_name, 'fb_post' AS type, fp.content, fp.timestamp, fp.permalink,
            'facebook' AS platform, fp.comment_count
-    FROM fb_posts fp JOIN fb_groups g ON fp.group_id = g.group_id ${fbWhere}
+    FROM fb_posts fp JOIN fb_groups fg ON fp.group_id = fg.group_id ${fbWhere}
     ORDER BY timestamp DESC
     LIMIT ? OFFSET ?
   `;
