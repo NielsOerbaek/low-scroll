@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 
 interface NewsletterEmail {
   id: number;
@@ -20,9 +21,24 @@ interface NewsletterEmail {
   digest_date: string | null;
 }
 
+interface Schedule {
+  id: string;
+  name: string;
+  time: string;
+  days: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
+  enabled: boolean;
+}
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS = [1, 2, 3, 4, 5];
+const WEEKEND = [0, 6];
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
 export function NewsletterDashboard() {
   const [emails, setEmails] = useState<NewsletterEmail[]>([]);
-  const [digestEmail, setDigestEmail] = useState("");
+  const [recipients, setRecipients] = useState<string[]>([]);
+  const [newRecipient, setNewRecipient] = useState("");
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -33,22 +49,71 @@ export function NewsletterDashboard() {
       .then((r) => r.json())
       .then((data) => {
         setEmails(data.emails || []);
-        setDigestEmail(data.digestEmail || "");
+        setRecipients(data.recipients || []);
+        setSchedules(data.schedules || []);
         setSystemPrompt(data.systemPrompt || "");
         setLoading(false);
       });
   }, []);
 
-  async function saveSettings() {
+  async function save(partial: Record<string, any>) {
     setSaving(true);
     setMessage("");
     await fetch("/api/newsletter", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ digestEmail, systemPrompt }),
+      body: JSON.stringify(partial),
     });
-    setMessage("Settings saved.");
+    setMessage("Saved.");
     setSaving(false);
+    setTimeout(() => setMessage(""), 2000);
+  }
+
+  function addRecipient() {
+    const email = newRecipient.trim();
+    if (!email || recipients.includes(email)) return;
+    const updated = [...recipients, email];
+    setRecipients(updated);
+    setNewRecipient("");
+    save({ recipients: updated });
+  }
+
+  function removeRecipient(email: string) {
+    const updated = recipients.filter((r) => r !== email);
+    setRecipients(updated);
+    save({ recipients: updated });
+  }
+
+  function addSchedule() {
+    const id = `schedule_${Date.now()}`;
+    const updated = [...schedules, { id, name: "", time: "08:00", days: ALL_DAYS, enabled: true }];
+    setSchedules(updated);
+    save({ schedules: updated });
+  }
+
+  function updateSchedule(index: number, partial: Partial<Schedule>) {
+    const updated = schedules.map((s, i) => i === index ? { ...s, ...partial } : s);
+    setSchedules(updated);
+    save({ schedules: updated });
+  }
+
+  function removeSchedule(index: number) {
+    const updated = schedules.filter((_, i) => i !== index);
+    setSchedules(updated);
+    save({ schedules: updated });
+  }
+
+  function toggleDay(index: number, day: number) {
+    const schedule = schedules[index];
+    const days = schedule.days.includes(day)
+      ? schedule.days.filter((d) => d !== day)
+      : [...schedule.days, day].sort();
+    updateSchedule(index, { days });
+  }
+
+  function setPresetDays(index: number, preset: "weekdays" | "weekend" | "all") {
+    const days = preset === "weekdays" ? WEEKDAYS : preset === "weekend" ? WEEKEND : ALL_DAYS;
+    updateSchedule(index, { days });
   }
 
   async function deleteEmail(id: number) {
@@ -80,48 +145,130 @@ export function NewsletterDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* ── Settings ──────────────────────────────────────────── */}
+      {/* ── Recipients ────────────────────────────────────────── */}
       <section className="space-y-3">
         <div>
-          <h2 className="text-lg font-semibold">Digest Settings</h2>
+          <h2 className="text-lg font-semibold">Digest Recipients</h2>
           <p className="text-sm text-muted-foreground">
-            Configure the newsletter digest email and summarization style
+            Email addresses that receive the newsletter digest
           </p>
         </div>
 
         <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="digest-email">Digest recipient email</Label>
+          <CardContent className="pt-6 space-y-3">
+            {recipients.map((email) => (
+              <div key={email} className="flex items-center gap-2">
+                <span className="text-sm flex-1 truncate">{email}</span>
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => removeRecipient(email)}>
+                  Remove
+                </Button>
+              </div>
+            ))}
+            <div className="flex gap-2">
               <Input
-                id="digest-email"
                 type="email"
-                value={digestEmail}
-                onChange={(e) => setDigestEmail(e.target.value)}
-                placeholder="you@example.com"
+                value={newRecipient}
+                onChange={(e) => setNewRecipient(e.target.value)}
+                placeholder="add@example.com"
+                onKeyDown={(e) => e.key === "Enter" && addRecipient()}
               />
-              <p className="text-xs text-muted-foreground">
-                Where the daily newsletter digest is sent. Falls back to your main email recipient if empty.
-              </p>
+              <Button onClick={addRecipient} disabled={!newRecipient.trim()}>Add</Button>
             </div>
+          </CardContent>
+        </Card>
+      </section>
 
-            <div className="space-y-1">
-              <Label htmlFor="system-prompt">System prompt for summarization</Label>
-              <textarea
-                id="system-prompt"
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder="Summarize this newsletter email concisely in 2-4 bullet points. Focus on the key information, news, or takeaways. Use plain text, no markdown."
-                rows={4}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              />
-              <p className="text-xs text-muted-foreground">
-                Instructions given to Claude for summarizing each newsletter. Leave empty for the default.
-              </p>
-            </div>
+      <Separator />
 
-            <Button onClick={saveSettings} disabled={saving}>
-              {saving ? "Saving..." : "Save Settings"}
+      {/* ── Schedules ─────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Digest Schedules</h2>
+          <p className="text-sm text-muted-foreground">
+            When to send digest emails. Multiple schedules supported.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {schedules.map((schedule, i) => (
+            <Card key={schedule.id}>
+              <CardContent className="pt-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Input
+                    value={schedule.name}
+                    onChange={(e) => updateSchedule(i, { name: e.target.value })}
+                    placeholder="e.g. Morning"
+                    className="flex-1"
+                  />
+                  <Input
+                    type="time"
+                    value={schedule.time}
+                    onChange={(e) => updateSchedule(i, { time: e.target.value })}
+                    className="w-28"
+                  />
+                  <Switch
+                    checked={schedule.enabled}
+                    onCheckedChange={(enabled) => updateSchedule(i, { enabled })}
+                  />
+                  <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => removeSchedule(i)}>
+                    Delete
+                  </Button>
+                </div>
+
+                {/* Day picker */}
+                <div className="space-y-2">
+                  <div className="flex gap-1">
+                    {DAY_LABELS.map((label, dayIndex) => (
+                      <button
+                        key={dayIndex}
+                        onClick={() => toggleDay(i, dayIndex)}
+                        className={`px-2 py-1 text-xs rounded border transition-colors ${
+                          schedule.days.includes(dayIndex)
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-input hover:bg-muted"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setPresetDays(i, "weekdays")} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Weekdays</button>
+                    <button onClick={() => setPresetDays(i, "weekend")} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Weekend</button>
+                    <button onClick={() => setPresetDays(i, "all")} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Every day</button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Button variant="outline" onClick={addSchedule}>Add Schedule</Button>
+      </section>
+
+      <Separator />
+
+      {/* ── System Prompt ─────────────────────────────────────── */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Summarization Prompt</h2>
+          <p className="text-sm text-muted-foreground">
+            Instructions given to Claude for summarizing each newsletter
+          </p>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6 space-y-3">
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="Summarize this newsletter email concisely in 2-4 bullet points. Focus on the key information, news, or takeaways. Use plain text, no markdown."
+              rows={4}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+            <p className="text-xs text-muted-foreground">Leave empty for the default.</p>
+            <Button onClick={() => save({ systemPrompt })} disabled={saving}>
+              {saving ? "Saving..." : "Save Prompt"}
             </Button>
             {message && <p className="text-sm text-green-600">{message}</p>}
           </CardContent>
@@ -156,7 +303,7 @@ export function NewsletterDashboard() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{email.subject}</p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {email.from_address} → {email.to_address}
+                        {email.from_address} &rarr; {email.to_address}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

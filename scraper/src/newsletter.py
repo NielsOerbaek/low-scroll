@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -149,8 +150,7 @@ def build_and_send_digest(user_id: int):
             system_prompt = db.get_user_config(user_id, "newsletter_system_prompt") or ""
             summaries = _summarize_newsletters(client, emails, system_prompt)
             html = _build_digest_html(config, summaries, len(emails), today)
-            digest_email = db.get_user_config(user_id, "newsletter_digest_email") or ""
-            _send_digest_email(config, db, user_id, html, len(emails), digest_email_override=digest_email)
+            _send_digest_email(config, db, user_id, html, len(emails))
 
             email_ids = [e["id"] for e in emails]
             db.mark_emails_digested(email_ids, today)
@@ -231,20 +231,46 @@ def _build_digest_html(config: Config, summaries: list[dict],
     )
 
 
+def _get_recipients(db: Database, user_id: int) -> list[str]:
+    """Resolve recipient list from user_config with fallback chain."""
+    try:
+        recipients = json.loads(db.get_user_config(user_id, "newsletter_recipients") or "[]")
+        if recipients:
+            return recipients
+    except (json.JSONDecodeError, TypeError):
+        pass
+    # Fallback: old single-email key
+    old = db.get_user_config(user_id, "newsletter_digest_email") or ""
+    if old:
+        return [old]
+    # Fallback: main email_recipient
+    main = db.get_user_config(user_id, "email_recipient") or ""
+    return [main] if main else []
+
+
 def _send_digest_email(config: Config, db: Database, user_id: int,
-                       html: str, email_count: int, digest_email_override: str = ""):
+                       html: str, email_count: int):
     """Send the digest email via Resend."""
     import resend
     resend.api_key = config.RESEND_API_KEY
 
-    email_recipient = digest_email_override.strip() or db.get_user_config(user_id, "email_recipient")
-    if not email_recipient:
-        logger.warning(f"No email_recipient configured for user {user_id}, skipping newsletter digest")
+    recipients = _get_recipients(db, user_id)
+    if not recipients:
+        logger.warning(f"No email recipients configured for user {user_id}, skipping newsletter digest")
         return
 
     resend.Emails.send({
         "from": "newsletters@raakode.dk",
-        "to": [email_recipient],
+        "to": recipients,
         "subject": f"Newsletter digest: {email_count} email{'s' if email_count != 1 else ''} summarized",
         "html": html,
     })
+
+
+def get_schedules(db: Database, user_id: int) -> list[dict]:
+    """Load newsletter digest schedules from user_config."""
+    try:
+        schedules = json.loads(db.get_user_config(user_id, "newsletter_schedules") or "[]")
+        return [s for s in schedules if s.get("enabled", True)]
+    except (json.JSONDecodeError, TypeError):
+        return []

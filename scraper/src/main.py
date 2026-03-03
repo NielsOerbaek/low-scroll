@@ -13,7 +13,7 @@ from src.instagram import InstagramClient, SessionExpiredError
 from src.downloader import MediaDownloader
 from src.scrape import Scraper
 from src.digest import DigestBuilder
-from src.newsletter import classify_emails, click_confirmations, build_and_send_digest
+from src.newsletter import classify_emails, click_confirmations, build_and_send_digest, get_schedules
 
 logging.basicConfig(
     level=logging.INFO,
@@ -585,22 +585,15 @@ def check_newsletter_processing():
 
 
 def check_newsletter_digest():
-    """Send daily newsletter digest if it's time and not already sent today."""
+    """Check all user schedules and send newsletter digests when due."""
     config = Config()
     if not config.ANTHROPIC_API_KEY:
         return
 
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
-
-    try:
-        target_h, target_m = map(int, config.NEWSLETTER_DIGEST_TIME.split(":"))
-        diff_minutes = abs((now.hour * 60 + now.minute) - (target_h * 60 + target_m))
-        if diff_minutes > 2:
-            return
-    except ValueError:
-        logger.error(f"Invalid NEWSLETTER_DIGEST_TIME: {config.NEWSLETTER_DIGEST_TIME}")
-        return
+    current_dow = now.weekday()  # 0=Mon, 6=Sun
+    current_minutes = now.hour * 60 + now.minute
 
     db = Database(config.DATABASE_PATH)
     db.initialize()
@@ -609,14 +602,62 @@ def check_newsletter_digest():
         users = db.get_all_active_users()
         for user in users:
             user_id = user["id"]
-            last_digest = db.get_last_newsletter_digest_date(user_id)
-            if last_digest == today:
+            schedules = get_schedules(db, user_id)
+
+            if not schedules:
+                # Fallback: no schedules configured, use NEWSLETTER_DIGEST_TIME env var (once daily)
+                try:
+                    target_h, target_m = map(int, config.NEWSLETTER_DIGEST_TIME.split(":"))
+                    diff_minutes = abs(current_minutes - (target_h * 60 + target_m))
+                    if diff_minutes > 2:
+                        continue
+                except ValueError:
+                    continue
+
+                last_digest = db.get_last_newsletter_digest_date(user_id)
+                if last_digest == today:
+                    continue
+
+                try:
+                    build_and_send_digest(user_id)
+                except Exception as e:
+                    logger.error(f"Newsletter digest error for user {user_id}: {e}")
                 continue
 
-            try:
-                build_and_send_digest(user_id)
-            except Exception as e:
-                logger.error(f"Newsletter digest error for user {user_id}: {e}")
+            # Schedule-based: check each schedule
+            for schedule in schedules:
+                schedule_id = schedule.get("id", "default")
+                try:
+                    target_h, target_m = map(int, schedule["time"].split(":"))
+                except (ValueError, KeyError):
+                    continue
+
+                # Check if current day-of-week matches
+                # Schedule days: 0=Sun, 1=Mon, ..., 6=Sat (JS convention)
+                # Python weekday: 0=Mon, ..., 6=Sun
+                # Convert python dow to JS dow: (python_dow + 1) % 7  ->  Mon=1, Sun=0
+                js_dow = (current_dow + 1) % 7
+                schedule_days = schedule.get("days", [1, 2, 3, 4, 5, 6, 0])  # default all days
+                if js_dow not in schedule_days:
+                    continue
+
+                # Check if within 2-minute window of target time
+                diff_minutes = abs(current_minutes - (target_h * 60 + target_m))
+                if diff_minutes > 2:
+                    continue
+
+                # Check if this schedule already ran today
+                last_key = f"newsletter_last_digest_{schedule_id}"
+                last_sent = db.get_user_config(user_id, last_key)
+                if last_sent == today:
+                    continue
+
+                logger.info(f"Newsletter digest schedule '{schedule_id}' due for user {user_id} at {schedule['time']}")
+                try:
+                    build_and_send_digest(user_id)
+                    db.set_user_config(user_id, last_key, today)
+                except Exception as e:
+                    logger.error(f"Newsletter digest error for user {user_id} schedule '{schedule_id}': {e}")
     finally:
         db.close()
 

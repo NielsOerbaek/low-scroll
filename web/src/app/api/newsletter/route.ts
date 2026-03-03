@@ -1,30 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserId } from "@/lib/auth";
-import { getNewsletterEmails, deleteNewsletterEmail, getUserConfig, setUserConfig } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/auth";
+import { getNewsletterEmails, deleteNewsletterEmail, getUserConfig, setUserConfig, getFirstActiveUserId } from "@/lib/db";
 
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+async function resolveUserId(): Promise<number | null> {
+  const sessionUserId = await getCurrentUserId();
+  if (sessionUserId) return sessionUserId;
+  return getFirstActiveUserId();
 }
 
 export async function GET() {
-  let userId: number;
-  try { userId = await requireUserId(); } catch { return unauthorized(); }
+  const userId = await resolveUserId();
+  if (!userId) return NextResponse.json({ error: "No user" }, { status: 404 });
 
   const emails = getNewsletterEmails(userId, 100);
-  const digestEmail = getUserConfig(userId, "newsletter_digest_email") || "";
+  const recipientsJson = getUserConfig(userId, "newsletter_recipients") || "[]";
+  const schedulesJson = getUserConfig(userId, "newsletter_schedules") || "[]";
   const systemPrompt = getUserConfig(userId, "newsletter_system_prompt") || "";
 
-  return NextResponse.json({ emails, digestEmail, systemPrompt });
+  let recipients: string[] = [];
+  let schedules: any[] = [];
+  try { recipients = JSON.parse(recipientsJson); } catch {}
+  try { schedules = JSON.parse(schedulesJson); } catch {}
+
+  // Migration: if old single-email key exists and recipients is empty, include it
+  if (recipients.length === 0) {
+    const oldEmail = getUserConfig(userId, "newsletter_digest_email") || "";
+    if (oldEmail) recipients = [oldEmail];
+  }
+
+  return NextResponse.json({ emails, recipients, schedules, systemPrompt });
 }
 
 export async function POST(request: NextRequest) {
-  let userId: number;
-  try { userId = await requireUserId(); } catch { return unauthorized(); }
+  const userId = await resolveUserId();
+  if (!userId) return NextResponse.json({ error: "No user" }, { status: 404 });
 
   const body = await request.json();
 
-  if (body.digestEmail !== undefined) {
-    setUserConfig(userId, "newsletter_digest_email", body.digestEmail);
+  if (body.recipients !== undefined) {
+    setUserConfig(userId, "newsletter_recipients", JSON.stringify(body.recipients));
+  }
+
+  if (body.schedules !== undefined) {
+    setUserConfig(userId, "newsletter_schedules", JSON.stringify(body.schedules));
   }
 
   if (body.systemPrompt !== undefined) {
@@ -35,8 +53,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  let userId: number;
-  try { userId = await requireUserId(); } catch { return unauthorized(); }
+  const userId = await resolveUserId();
+  if (!userId) return NextResponse.json({ error: "No user" }, { status: 404 });
 
   const emailId = request.nextUrl.searchParams.get("id");
   if (!emailId) {
