@@ -1,3 +1,7 @@
 ig.raakode.dk {
     reverse_proxy web:3000
 }
+
+news.raakode.dk {
+    reverse_proxy web:3000
+}
