@@ -294,6 +294,35 @@ export function getFirstActiveUserId(): number | null {
   return row?.id ?? null;
 }
 
+export interface NewsletterEmail {
+  id: number;
+  from_address: string;
+  to_address: string;
+  subject: string;
+  received_at: string;
+  processed: number;
+  is_confirmation: number;
+  confirmation_clicked: number;
+  digest_date: string | null;
+}
+
+export function getNewsletterEmails(userId: number, limit = 100): NewsletterEmail[] {
+  return getDb()
+    .prepare(
+      `SELECT id, from_address, to_address, subject, received_at, processed,
+              is_confirmation, confirmation_clicked, digest_date
+       FROM newsletter_emails WHERE user_id = ?
+       ORDER BY received_at DESC LIMIT ?`
+    )
+    .all(userId, limit) as NewsletterEmail[];
+}
+
+export function deleteNewsletterEmail(userId: number, emailId: number): void {
+  const db = getWritableDb();
+  db.prepare("DELETE FROM newsletter_emails WHERE id = ? AND user_id = ?").run(emailId, userId);
+  db.close();
+}
+
 // ── Unified Feed ──────────────────────────────────────────────
 
 export function getUnifiedFeed(

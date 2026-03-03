@@ -146,9 +146,11 @@ def build_and_send_digest(user_id: int):
 
         try:
             client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-            summaries = _summarize_newsletters(client, emails)
+            system_prompt = db.get_user_config(user_id, "newsletter_system_prompt") or ""
+            summaries = _summarize_newsletters(client, emails, system_prompt)
             html = _build_digest_html(config, summaries, len(emails), today)
-            _send_digest_email(config, db, user_id, html, len(emails))
+            digest_email = db.get_user_config(user_id, "newsletter_digest_email") or ""
+            _send_digest_email(config, db, user_id, html, len(emails), digest_email_override=digest_email)
 
             email_ids = [e["id"] for e in emails]
             db.mark_emails_digested(email_ids, today)
@@ -163,9 +165,15 @@ def build_and_send_digest(user_id: int):
         db.close()
 
 
-def _summarize_newsletters(client: Anthropic, emails: list[dict]) -> list[dict]:
+def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt: str = "") -> list[dict]:
     """Use Claude to summarize each newsletter email."""
     summaries = []
+
+    default_instruction = (
+        "Summarize this newsletter email concisely in 2-4 bullet points. "
+        "Focus on the key information, news, or takeaways. Use plain text, no markdown."
+    )
+    instruction = system_prompt.strip() if system_prompt.strip() else default_instruction
 
     for email in emails:
         body = email.get("body_text") or ""
@@ -176,8 +184,7 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict]) -> list[dict]:
         body = body[:8000]
 
         prompt = (
-            f"Summarize this newsletter email concisely in 2-4 bullet points. "
-            f"Focus on the key information, news, or takeaways. Use plain text, no markdown.\n\n"
+            f"{instruction}\n\n"
             f"From: {email['from_address']}\n"
             f"Subject: {email['subject']}\n"
             f"Date: {email['received_at']}\n\n"
@@ -225,12 +232,12 @@ def _build_digest_html(config: Config, summaries: list[dict],
 
 
 def _send_digest_email(config: Config, db: Database, user_id: int,
-                       html: str, email_count: int):
+                       html: str, email_count: int, digest_email_override: str = ""):
     """Send the digest email via Resend."""
     import resend
     resend.api_key = config.RESEND_API_KEY
 
-    email_recipient = db.get_user_config(user_id, "email_recipient")
+    email_recipient = digest_email_override.strip() or db.get_user_config(user_id, "email_recipient")
     if not email_recipient:
         logger.warning(f"No email_recipient configured for user {user_id}, skipping newsletter digest")
         return

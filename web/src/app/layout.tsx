@@ -49,6 +49,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </Link>
             {userId && (
               <div className="flex items-center gap-4">
+                <Link href="/newsletters" className="text-sm text-muted-foreground hover:text-foreground">
+                  Newsletters
+                </Link>
                 <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
                   Settings
                 </Link>
