@@ -20,6 +20,7 @@ services:
       - MEDIA_PATH=/data/media
       - BASE_URL=${BASE_URL}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - NEWSLETTER_API_KEY=${NEWSLETTER_API_KEY}
     volumes:
       - ./data/db:/data/db
       - ./data/media:/data/media
@@ -33,6 +34,8 @@ services:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - RESEND_API_KEY=${RESEND_API_KEY}
       - BASE_URL=${BASE_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - NEWSLETTER_DIGEST_TIME=${NEWSLETTER_DIGEST_TIME:-07:00}
     volumes:
       - ./data/db:/data/db
       - ./data/media:/data/media

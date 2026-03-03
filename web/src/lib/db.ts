@@ -266,6 +266,34 @@ export function isUserAdmin(userId: number): boolean {
   return row?.is_admin === 1;
 }
 
+// ── Newsletter ────────────────────────────────────────────────
+
+export function insertNewsletterEmail(
+  userId: number,
+  messageId: string,
+  fromAddress: string,
+  toAddress: string,
+  subject: string,
+  bodyText: string,
+  bodyHtml: string
+): number {
+  const db = getWritableDb();
+  const result = db.prepare(
+    `INSERT INTO newsletter_emails
+     (user_id, message_id, from_address, to_address, subject, body_text, body_html)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(userId, messageId, fromAddress, toAddress, subject, bodyText, bodyHtml);
+  db.close();
+  return Number(result.lastInsertRowid);
+}
+
+export function getFirstActiveUserId(): number | null {
+  const row = getDb().prepare(
+    "SELECT id FROM users WHERE is_active = 1 ORDER BY id ASC LIMIT 1"
+  ).get() as { id: number } | undefined;
+  return row?.id ?? null;
+}
+
 // ── Unified Feed ──────────────────────────────────────────────
 
 export function getUnifiedFeed(

@@ -128,6 +128,33 @@ class Database:
                 timestamp DATETIME,
                 "order" INTEGER DEFAULT 0
             );
+
+            CREATE TABLE IF NOT EXISTS newsletter_emails (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                message_id TEXT,
+                from_address TEXT NOT NULL,
+                to_address TEXT NOT NULL,
+                subject TEXT,
+                body_text TEXT,
+                body_html TEXT,
+                received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                processed INTEGER DEFAULT 0,
+                is_confirmation INTEGER DEFAULT 0,
+                confirmation_clicked INTEGER DEFAULT 0,
+                digest_date TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS newsletter_digest_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                digest_date TEXT NOT NULL,
+                email_count INTEGER DEFAULT 0,
+                started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                finished_at DATETIME,
+                status TEXT DEFAULT 'pending',
+                error TEXT
+            );
         """)
 
     # ── Users ──────────────────────────────────────────────────────
@@ -555,6 +582,107 @@ class Database:
         params.extend([limit, offset])
         rows = self.execute(sql, params).fetchall()
         return [dict(r) for r in rows]
+
+    # ── Newsletter ─────────────────────────────────────────────────
+
+    def insert_newsletter_email(self, user_id: int, message_id: str,
+                                from_address: str, to_address: str,
+                                subject: str, body_text: str,
+                                body_html: str) -> int:
+        cursor = self.execute(
+            """INSERT INTO newsletter_emails
+               (user_id, message_id, from_address, to_address, subject, body_text, body_html)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, message_id, from_address, to_address, subject, body_text, body_html),
+        )
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def get_unclassified_emails(self, user_id: int) -> list[dict]:
+        rows = self.execute(
+            """SELECT * FROM newsletter_emails
+               WHERE user_id=? AND processed=0
+               ORDER BY received_at ASC""",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_unprocessed_confirmations(self, user_id: int) -> list[dict]:
+        rows = self.execute(
+            """SELECT * FROM newsletter_emails
+               WHERE user_id=? AND is_confirmation=1 AND confirmation_clicked=0
+               ORDER BY received_at ASC""",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_email_as_confirmation(self, email_id: int):
+        self.execute(
+            "UPDATE newsletter_emails SET is_confirmation=1, processed=1 WHERE id=?",
+            (email_id,),
+        )
+        self.conn.commit()
+
+    def mark_email_processed(self, email_id: int):
+        self.execute(
+            "UPDATE newsletter_emails SET processed=1 WHERE id=?",
+            (email_id,),
+        )
+        self.conn.commit()
+
+    def mark_confirmation_clicked(self, email_id: int):
+        self.execute(
+            "UPDATE newsletter_emails SET confirmation_clicked=1 WHERE id=?",
+            (email_id,),
+        )
+        self.conn.commit()
+
+    def get_undigested_emails(self, user_id: int) -> list[dict]:
+        rows = self.execute(
+            """SELECT * FROM newsletter_emails
+               WHERE user_id=? AND processed=1 AND is_confirmation=0 AND digest_date IS NULL
+               ORDER BY received_at ASC""",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_emails_digested(self, email_ids: list[int], digest_date: str):
+        if not email_ids:
+            return
+        placeholders = ",".join("?" for _ in email_ids)
+        self.execute(
+            f"UPDATE newsletter_emails SET digest_date=? WHERE id IN ({placeholders})",
+            [digest_date] + email_ids,
+        )
+        self.conn.commit()
+
+    def insert_newsletter_digest_run(self, user_id: int, digest_date: str) -> int:
+        cursor = self.execute(
+            "INSERT INTO newsletter_digest_runs (user_id, digest_date) VALUES (?, ?)",
+            (user_id, digest_date),
+        )
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def finish_newsletter_digest_run(self, run_id: int, status: str,
+                                     email_count: int = 0,
+                                     error: str | None = None):
+        self.execute(
+            """UPDATE newsletter_digest_runs
+               SET finished_at=datetime('now'), status=?, email_count=?, error=?
+               WHERE id=?""",
+            (status, email_count, error, run_id),
+        )
+        self.conn.commit()
+
+    def get_last_newsletter_digest_date(self, user_id: int) -> str | None:
+        row = self.execute(
+            """SELECT digest_date FROM newsletter_digest_runs
+               WHERE user_id=? AND status='success'
+               ORDER BY digest_date DESC LIMIT 1""",
+            (user_id,),
+        ).fetchone()
+        return row["digest_date"] if row else None
 
     def close(self):
         if self._conn:

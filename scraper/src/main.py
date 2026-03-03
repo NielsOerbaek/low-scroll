@@ -13,6 +13,7 @@ from src.instagram import InstagramClient, SessionExpiredError
 from src.downloader import MediaDownloader
 from src.scrape import Scraper
 from src.digest import DigestBuilder
+from src.newsletter import classify_emails, click_confirmations, build_and_send_digest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -561,6 +562,65 @@ def check_user_fb_group_resolve():
         db.close()
 
 
+def check_newsletter_processing():
+    """Classify new newsletter emails and click confirmation links for all active users."""
+    config = Config()
+    if not config.ANTHROPIC_API_KEY:
+        return
+
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    try:
+        users = db.get_all_active_users()
+        for user in users:
+            user_id = user["id"]
+            try:
+                classify_emails(user_id)
+                click_confirmations(user_id)
+            except Exception as e:
+                logger.error(f"Newsletter processing error for user {user_id}: {e}")
+    finally:
+        db.close()
+
+
+def check_newsletter_digest():
+    """Send daily newsletter digest if it's time and not already sent today."""
+    config = Config()
+    if not config.ANTHROPIC_API_KEY:
+        return
+
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+
+    try:
+        target_h, target_m = map(int, config.NEWSLETTER_DIGEST_TIME.split(":"))
+        diff_minutes = abs((now.hour * 60 + now.minute) - (target_h * 60 + target_m))
+        if diff_minutes > 2:
+            return
+    except ValueError:
+        logger.error(f"Invalid NEWSLETTER_DIGEST_TIME: {config.NEWSLETTER_DIGEST_TIME}")
+        return
+
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    try:
+        users = db.get_all_active_users()
+        for user in users:
+            user_id = user["id"]
+            last_digest = db.get_last_newsletter_digest_date(user_id)
+            if last_digest == today:
+                continue
+
+            try:
+                build_and_send_digest(user_id)
+            except Exception as e:
+                logger.error(f"Newsletter digest error for user {user_id}: {e}")
+    finally:
+        db.close()
+
+
 _shutdown = False
 
 
@@ -591,6 +651,8 @@ def main():
     last_manual_run = 0.0
     last_trigger_check = 0.0
     last_fb_resolve = 0.0
+    last_newsletter_check = 0.0
+    last_newsletter_digest = 0.0
 
     while not _shutdown:
         now = time.monotonic()
@@ -634,6 +696,22 @@ def main():
                 check_user_fb_group_resolve()
             except Exception as e:
                 logger.error(f"Error in check_user_fb_group_resolve: {e}")
+
+        # check_newsletter_processing every 60s
+        if now - last_newsletter_check >= 60:
+            last_newsletter_check = now
+            try:
+                check_newsletter_processing()
+            except Exception as e:
+                logger.error(f"Error in check_newsletter_processing: {e}")
+
+        # check_newsletter_digest every 60s
+        if now - last_newsletter_digest >= 60:
+            last_newsletter_digest = now
+            try:
+                check_newsletter_digest()
+            except Exception as e:
+                logger.error(f"Error in check_newsletter_digest: {e}")
 
         # Sleep briefly to avoid busy-waiting
         time.sleep(1)

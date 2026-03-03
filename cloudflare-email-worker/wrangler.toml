@@ -1,0 +1,9 @@
+name = "newsletter-email-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+WEBHOOK_URL = "https://ig.raakode.dk/api/webhooks/email"
+
+# API key should be set as a secret:
+# npx wrangler secret put NEWSLETTER_API_KEY
