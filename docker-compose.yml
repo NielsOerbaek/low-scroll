@@ -21,6 +21,7 @@ services:
       - BASE_URL=${BASE_URL}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - NEWSLETTER_API_KEY=${NEWSLETTER_API_KEY}
+      - NEWS_PASSWORD=${NEWS_PASSWORD:-}
     volumes:
       - ./data/db:/data/db
       - ./data/media:/data/media

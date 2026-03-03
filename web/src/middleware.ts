@@ -4,8 +4,19 @@ export function middleware(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const isNewsDomain = host.startsWith("news.");
 
-  // news.raakode.dk is public — no auth required
+  // news.raakode.dk — simple password gate
   if (isNewsDomain) {
+    const newsPassword = process.env.NEWS_PASSWORD || "";
+    const isNewsApi = request.nextUrl.pathname.startsWith("/api/");
+    const isGatePage = request.nextUrl.pathname === "/news-gate";
+
+    if (newsPassword && !isGatePage && !isNewsApi) {
+      const auth = request.cookies.get("news_auth");
+      if (auth?.value !== newsPassword) {
+        return NextResponse.rewrite(new URL("/news-gate", request.url));
+      }
+    }
+
     if (request.nextUrl.pathname === "/" || request.nextUrl.pathname === "/login") {
       return NextResponse.rewrite(new URL("/newsletters", request.url));
     }
