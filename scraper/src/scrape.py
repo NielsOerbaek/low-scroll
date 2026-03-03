@@ -1,6 +1,6 @@
 import logging
 from src.db import Database
-from src.instagram import InstagramClient
+from src.instagram import InstagramClient, SessionExpiredError
 from src.downloader import MediaDownloader
 from src.facebook import FacebookClient
 
@@ -116,6 +116,8 @@ class Scraper:
                 if was_new:
                     total_posts += 1
             logger.info(f"Timeline feed: {total_posts} new posts from {len(followed)} followed accounts")
+        except SessionExpiredError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching timeline feed: {e}")
 
@@ -133,6 +135,8 @@ class Scraper:
                 if was_new:
                     total_stories += 1
             logger.info(f"Stories tray: {total_stories} new stories")
+        except SessionExpiredError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching stories tray: {e}")
 

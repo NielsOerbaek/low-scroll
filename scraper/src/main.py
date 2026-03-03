@@ -223,7 +223,7 @@ def _run_ig_cookie_test(user_id: int, config: Config, db: Database):
     log("Creating Instagram client...")
     ig = InstagramClient(cookies)
 
-    log("Testing session against Instagram API (GET /api/v1/users/web_profile_info/) ...")
+    log("Testing session against Instagram API (GET /api/v1/feed/reels_tray/) ...")
     log("(This may take a few minutes if rate-limited)")
 
     # Capture instagram module logs (rate limit warnings etc.)

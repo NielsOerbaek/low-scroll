@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 import random
@@ -11,7 +12,7 @@ BASE = "https://www.instagram.com"
 
 
 class SessionExpiredError(Exception):
-    """Raised when Instagram returns 400/401/403, indicating an expired session."""
+    """Raised when Instagram returns 400/401/403 or non-JSON, indicating an expired session."""
     pass
 
 
@@ -53,11 +54,29 @@ class InstagramClient:
             if resp.status_code in (400, 401, 403):
                 raise SessionExpiredError(f"HTTP {resp.status_code} on {path}")
             resp.raise_for_status()
-            return resp.json()
+            return self._parse_json(resp, path)
         if resp.status_code in (400, 401, 403):
             raise SessionExpiredError(f"HTTP {resp.status_code} on {path} after retries")
         resp.raise_for_status()
-        return resp.json()
+        return self._parse_json(resp, path)
+
+    @staticmethod
+    def _parse_json(resp, path: str) -> dict:
+        """Parse JSON response, raising SessionExpiredError if response is HTML (expired session)."""
+        content_type = resp.headers.get("Content-Type", "")
+        if "text/html" in content_type:
+            raise SessionExpiredError(
+                f"Got HTML instead of JSON on {path} — session expired or cookies invalid"
+            )
+        try:
+            data = resp.json()
+        except (json.JSONDecodeError, ValueError) as e:
+            raise SessionExpiredError(
+                f"Non-JSON response on {path} (Content-Type: {content_type}) — session likely expired"
+            ) from e
+        if isinstance(data, dict) and data.get("require_login"):
+            raise SessionExpiredError(f"require_login response on {path}")
+        return data
 
     def browse_pause(self):
         """Simulate human browsing — occasional long pauses like reading content."""
@@ -67,11 +86,15 @@ class InstagramClient:
             time.sleep(random.uniform(3.0, 12.0))
 
     def validate_session(self) -> bool | None:
-        """Returns True if valid, False if invalid/stale, None if rate limited."""
+        """Returns True if valid, False if invalid/stale, None if rate limited.
+
+        Uses the reels_tray endpoint which requires authentication (unlike
+        web_profile_info which is public and works without cookies).
+        """
         try:
-            data = self._get("/api/v1/users/web_profile_info/", {"username": "instagram"},
-                             referer="https://www.instagram.com/instagram/")
-            return "data" in data and "user" in data["data"]
+            data = self._get("/api/v1/feed/reels_tray/",
+                             referer="https://www.instagram.com/")
+            return "tray" in data
         except SessionExpiredError:
             logger.warning("Session validation failed: session expired")
             return False
