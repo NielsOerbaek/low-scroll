@@ -169,7 +169,7 @@ export function ActivityLog() {
                 <div key={key}>
                   <button
                     onClick={() => setExpandedRun(isExpanded ? null : key)}
-                    className="flex items-center justify-between w-full border px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full border px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors gap-1 sm:gap-2"
                   >
                     <div className="flex items-center gap-2">
                       {statusBadge(run.status)}
@@ -179,8 +179,11 @@ export function ActivityLog() {
                           since {run.since_date}
                         </span>
                       )}
+                      <span className="sm:hidden text-xs text-muted-foreground ml-auto">
+                        {isExpanded ? "[-]" : "[+]"}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 text-muted-foreground">
+                    <div className="flex items-center gap-3 text-muted-foreground text-xs sm:text-sm">
                       {run.status === "success" && (
                         <span>
                           {total === 0
@@ -201,7 +204,7 @@ export function ActivityLog() {
                           ? new Date(run.started_at + "Z").toLocaleString()
                           : "—"}
                       </span>
-                      <span className="text-xs">
+                      <span className="text-xs hidden sm:inline">
                         {isExpanded ? "[-]" : "[+]"}
                       </span>
                     </div>

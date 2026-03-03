@@ -20,12 +20,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ log });
   }
 
-  const scrapeRuns = getRecentScrapeRuns(userId, 20).map((r) => ({
+  const scrapeRuns = getRecentScrapeRuns(userId, 10).map((r) => ({
     ...r,
     kind: "scheduled" as const,
   }));
 
-  const manualRuns = getRecentManualRuns(userId, 20).map((r) => ({
+  const manualRuns = getRecentManualRuns(userId, 10).map((r) => ({
     id: r.id,
     kind: "manual" as const,
     started_at: r.started_at ?? r.created_at,
@@ -37,12 +37,14 @@ export async function GET(req: Request) {
     since_date: r.since_date,
   }));
 
-  // Merge and sort by start time descending
-  const all = [...scrapeRuns, ...manualRuns].sort((a, b) => {
-    const ta = a.started_at ?? "";
-    const tb = b.started_at ?? "";
-    return tb.localeCompare(ta);
-  });
+  // Merge, sort by start time descending, limit to 10
+  const all = [...scrapeRuns, ...manualRuns]
+    .sort((a, b) => {
+      const ta = a.started_at ?? "";
+      const tb = b.started_at ?? "";
+      return tb.localeCompare(ta);
+    })
+    .slice(0, 10);
 
   return NextResponse.json({ runs: all });
 }
