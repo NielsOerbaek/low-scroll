@@ -265,7 +265,8 @@ export function NewsletterDashboard() {
     <div className="max-w-[1600px] mx-auto space-y-8">
       {/* ── Explainer ─────────────────────────────────────────── */}
       <div className="space-y-4 max-w-4xl mx-auto text-center">
-        {(() => {
+        {/* Network diagram — hidden on mobile */}
+        <div className="hidden md:block">{(() => {
           const rows = 5;
           const rowH = 26;
           const gap = 4;
@@ -311,7 +312,7 @@ export function NewsletterDashboard() {
               <Col n={3} labels={Array(3).fill("Modtager")} />
             </div>
           );
-        })()}
+        })()}</div>
         <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
           Tilmeld dig nyhedsbreve med en vilkårlig adresse på <code className="px-1 py-0.5 bg-muted rounded text-xs">@news.raakode.dk</code>.
           Hvert nyhedsbrev opsummeres enkeltvis med <strong>opsummeringsprompten</strong>, derefter samles alle opsummeringer
@@ -319,8 +320,16 @@ export function NewsletterDashboard() {
         </p>
       </div>
 
-      {/* ── Row 1: Settings (2 columns) ───────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* ── Settings (collapsible on mobile) ─────────────────── */}
+      <details className="md:open group">
+        <summary className="md:hidden text-sm font-semibold cursor-pointer py-2 flex items-center gap-1">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"
+               className="transition-transform group-open:rotate-90">
+            <path d="M6 4l4 4-4 4" />
+          </svg>
+          Indstillinger
+        </summary>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2 md:mt-0">
         {/* Left: Recipients + Schedules */}
         <div className="space-y-6">
           <section className="space-y-2">
@@ -442,6 +451,7 @@ export function NewsletterDashboard() {
           </section>
         </div>
       </div>
+      </details>
 
       {/* ── Subscriptions ────────────────────────────────────── */}
       {realSubscriptions.length > 0 && (
