@@ -12,14 +12,12 @@ export default {
     const parser = new PostalMime();
     const parsed = await parser.parse(rawEmail);
 
-    // parsed.from is an array of { name, address } objects
-    const fromName =
-      parsed.from && parsed.from.length > 0 && parsed.from[0].name
-        ? parsed.from[0].name
-        : "";
+    // parsed.from is a { name, address } object with the real sender info
+    const fromAddr = parsed.from?.address || message.from;
+    const fromName = parsed.from?.name || "";
 
     const payload = {
-      from: message.from,
+      from: fromAddr,
       from_name: fromName,
       to: message.to,
       subject: message.headers.get("subject") || "(no subject)",
