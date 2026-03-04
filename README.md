@@ -48,6 +48,21 @@ openssl rand -hex 32
 
 The `extension/` directory contains a Chrome extension for one-click cookie sync. Load it as an unpacked extension, configure the instance URL and password, then click "Sync Cookies" while logged into Instagram.
 
+## Newsletter Digest
+
+A separate feature that aggregates newsletter subscriptions into AI-summarized digests.
+
+**How it works:**
+
+1. Subscribe to newsletters using any address at `@news.raakode.dk` (via Cloudflare Email Routing)
+2. Incoming emails are classified by AI — confirmations are auto-clicked, content is kept
+3. Each newsletter is individually summarized using Claude
+4. Summaries are compiled into a themed digest and emailed to your configured recipients on a schedule
+
+**Dashboard** at `news.raakode.dk` — manage subscriptions, view emails, edit AI prompts, and configure digest schedules/recipients.
+
+Requires `ANTHROPIC_API_KEY` in `.env`.
+
 ## Development
 
 ```bash
