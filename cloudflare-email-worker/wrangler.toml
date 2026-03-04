@@ -1,6 +1,7 @@
 name = "newsletter-email-worker"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
+workers_dev = false
 
 [vars]
 WEBHOOK_URL = "https://ig.raakode.dk/api/webhooks/email"

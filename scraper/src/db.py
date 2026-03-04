@@ -675,6 +675,40 @@ class Database:
         )
         self.conn.commit()
 
+    def save_email_summary(self, email_id: int, summary: str):
+        try:
+            self.execute("ALTER TABLE newsletter_emails ADD COLUMN summary TEXT")
+        except Exception:
+            pass
+        self.execute(
+            "UPDATE newsletter_emails SET summary=? WHERE id=?",
+            (summary, email_id),
+        )
+        self.conn.commit()
+
+    def save_digest_html(self, run_id: int, html: str):
+        # Ensure column exists (idempotent migration)
+        try:
+            self.execute("ALTER TABLE newsletter_digest_runs ADD COLUMN digest_html TEXT")
+        except Exception:
+            pass  # Column already exists
+        self.execute(
+            "UPDATE newsletter_digest_runs SET digest_html=? WHERE id=?",
+            (html, run_id),
+        )
+        self.conn.commit()
+
+    def get_digest_runs(self, user_id: int, limit: int = 20) -> list[dict]:
+        rows = self.execute(
+            """SELECT id, user_id, digest_date, email_count, started_at, finished_at,
+                      status, error, digest_html
+               FROM newsletter_digest_runs
+               WHERE user_id=?
+               ORDER BY started_at DESC LIMIT ?""",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def get_last_newsletter_digest_date(self, user_id: int) -> str | None:
         row = self.execute(
             """SELECT digest_date FROM newsletter_digest_runs

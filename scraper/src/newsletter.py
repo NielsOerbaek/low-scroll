@@ -121,7 +121,26 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
     session = requests.Session(impersonate="chrome131")
     try:
         resp = session.get(url, timeout=30, allow_redirects=True)
-        logger.info(f"Confirmation click result: {resp.status_code} for email {email['id']}")
+        logger.info(f"Confirmation click HTTP {resp.status_code} for email {email['id']}")
+
+        # Ask Claude to verify the response page
+        page_text = BeautifulSoup(resp.text[:5000], "lxml").get_text(separator=" ", strip=True)[:2000]
+        verify = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=50,
+            messages=[{"role": "user", "content": (
+                f"Did this newsletter subscription confirmation succeed? "
+                f"Page content after clicking the confirm link:\n\n{page_text}\n\n"
+                f"Respond with EXACTLY: SUCCESS, FAILED, or UNCLEAR"
+            )}],
+        )
+        result = verify.content[0].text.strip().upper()
+        if "SUCCESS" in result:
+            logger.info(f"Confirmation VERIFIED for email {email['id']}: {email['from_address']}")
+        elif "FAILED" in result:
+            logger.warning(f"Confirmation FAILED for email {email['id']}: {email['from_address']} — page did not confirm success")
+        else:
+            logger.warning(f"Confirmation UNCLEAR for email {email['id']}: {email['from_address']}")
     except Exception as e:
         logger.error(f"Failed to click confirmation link for email {email['id']}: {e}")
     finally:
@@ -148,8 +167,11 @@ def build_and_send_digest(user_id: int):
         try:
             client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
             system_prompt = db.get_user_config(user_id, "newsletter_system_prompt") or ""
-            summaries = _summarize_newsletters(client, emails, system_prompt)
-            html = _build_digest_html(config, summaries, len(emails), today)
+            digest_prompt = db.get_user_config(user_id, "newsletter_digest_prompt") or ""
+            summaries = _summarize_newsletters(client, emails, system_prompt, db=db)
+            digest_content = _structure_digest(client, summaries, digest_prompt)
+            html = _build_digest_html(config, digest_content, len(emails), today)
+            db.save_digest_html(run_id, html)
             _send_digest_email(config, db, user_id, html, len(emails))
 
             email_ids = [e["id"] for e in emails]
@@ -165,13 +187,14 @@ def build_and_send_digest(user_id: int):
         db.close()
 
 
-def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt: str = "") -> list[dict]:
+def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt: str = "", db: Database = None) -> list[dict]:
     """Use Claude to summarize each newsletter email."""
     summaries = []
 
     default_instruction = (
-        "Summarize this newsletter email concisely in 2-4 bullet points. "
-        "Focus on the key information, news, or takeaways. Use plain text, no markdown."
+        "Summarize this newsletter email thoroughly. Include all notable stories, data points, "
+        "and takeaways. Use bullet points and cover both main stories and smaller items. "
+        "Use plain text, no markdown."
     )
     instruction = system_prompt.strip() if system_prompt.strip() else default_instruction
 
@@ -203,6 +226,12 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
             logger.error(f"Failed to summarize email {email['id']}: {e}")
             summary = f"(Summary unavailable: {email['subject']})"
 
+        if db:
+            try:
+                db.save_email_summary(email["id"], summary)
+            except Exception as e:
+                logger.error(f"Failed to save summary for email {email['id']}: {e}")
+
         summaries.append({
             "from": email["from_address"],
             "subject": email["subject"],
@@ -213,7 +242,55 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
     return summaries
 
 
-def _build_digest_html(config: Config, summaries: list[dict],
+def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: str = "") -> str:
+    """Use Claude to structure individual summaries into a themed digest. Returns HTML."""
+    summaries_text = ""
+    for s in summaries:
+        summaries_text += (
+            f"--- Newsletter: {s['subject']} ---\n"
+            f"From: {s['from']}\n"
+            f"Received: {s['received_at']}\n"
+            f"Summary:\n{s['summary']}\n\n"
+        )
+
+    default_instruction = (
+        "Structure this newsletter digest by grouping related stories and themes together. "
+        "For each theme or story, reference which newsletter(s) it appeared in (by name/sender). "
+        "If a story appears in multiple newsletters, combine the coverage. "
+        "Put the most important or widely-covered stories first. "
+        "Include smaller standalone items at the end."
+    )
+    instruction = digest_prompt.strip() if digest_prompt.strip() else default_instruction
+
+    prompt = (
+        f"{instruction}\n\n"
+        f"Here are the individual newsletter summaries:\n\n"
+        f"{summaries_text}\n\n"
+        f"Output the digest as simple HTML suitable for embedding in an email. "
+        f"Use only basic tags: <h3>, <p>, <ul>, <li>, <strong>, <em>, <br>. "
+        f"Use inline styles sparingly (only font-size and color). "
+        f"Do NOT include <html>, <head>, <body>, or <style> tags."
+    )
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Failed to structure digest: {e}")
+        # Fallback: render summaries sequentially
+        fallback = ""
+        for s in summaries:
+            fallback += f"<h3>{s['subject']}</h3>"
+            fallback += f"<p style='font-size:11px;color:#8e8e8e;'>{s['from']} &middot; {s['received_at']}</p>"
+            fallback += f"<p>{s['summary']}</p>"
+        return fallback
+
+
+def _build_digest_html(config: Config, digest_content: str,
                        email_count: int, digest_date: str) -> str:
     """Build HTML for the newsletter digest email using Jinja2."""
     import os
@@ -224,7 +301,7 @@ def _build_digest_html(config: Config, summaries: list[dict],
     template = env.get_template("newsletter_digest.html")
 
     return template.render(
-        summaries=summaries,
+        digest_content=digest_content,
         email_count=email_count,
         digest_date=digest_date,
         base_url=config.BASE_URL,

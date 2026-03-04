@@ -1,9 +1,12 @@
 import { NewsletterDashboard } from "@/components/newsletter-dashboard";
+import { Logo } from "@/components/logo";
 
 export default function NewslettersPage() {
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Newsletters</h1>
+    <div className="max-w-[1600px] mx-auto">
+      <div className="flex justify-center mb-6">
+        <Logo />
+      </div>
       <NewsletterDashboard />
     </div>
   );

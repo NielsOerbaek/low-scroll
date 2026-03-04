@@ -323,6 +323,78 @@ export function deleteNewsletterEmail(userId: number, emailId: number): void {
   db.close();
 }
 
+export function getNewsletterEmailBody(userId: number, emailId: number): { body_html: string | null; body_text: string | null; summary: string | null } | null {
+  // Ensure summary column exists
+  const wdb = getWritableDb();
+  try { wdb.prepare("ALTER TABLE newsletter_emails ADD COLUMN summary TEXT").run(); } catch {}
+  wdb.close();
+
+  const row = getDb()
+    .prepare("SELECT body_html, body_text, summary FROM newsletter_emails WHERE id = ? AND user_id = ?")
+    .get(emailId, userId) as { body_html: string | null; body_text: string | null; summary: string | null } | undefined;
+  return row ?? null;
+}
+
+export interface DigestRun {
+  id: number;
+  digest_date: string;
+  email_count: number;
+  started_at: string;
+  finished_at: string | null;
+  status: string;
+  error: string | null;
+}
+
+export function getDigestRuns(userId: number, limit = 20): DigestRun[] {
+  return getDb()
+    .prepare(
+      `SELECT id, digest_date, email_count, started_at, finished_at, status, error
+       FROM newsletter_digest_runs WHERE user_id = ?
+       ORDER BY started_at DESC LIMIT ?`
+    )
+    .all(userId, limit) as DigestRun[];
+}
+
+export function getDigestRunHtml(userId: number, runId: number): string | null {
+  // Ensure column exists
+  const db = getWritableDb();
+  try {
+    db.prepare("ALTER TABLE newsletter_digest_runs ADD COLUMN digest_html TEXT").run();
+  } catch {
+    // Column already exists
+  }
+  db.close();
+
+  const row = getDb()
+    .prepare("SELECT digest_html FROM newsletter_digest_runs WHERE id = ? AND user_id = ?")
+    .get(runId, userId) as { digest_html: string | null } | undefined;
+  return row?.digest_html ?? null;
+}
+
+export interface NewsletterSubscription {
+  from_address: string;
+  to_address: string;
+  email_count: number;
+  last_received: string;
+  latest_email_id: number;
+}
+
+export function getNewsletterSubscriptions(userId: number): NewsletterSubscription[] {
+  return getDb()
+    .prepare(
+      `SELECT from_address, to_address, COUNT(*) as email_count,
+              MAX(received_at) as last_received,
+              (SELECT id FROM newsletter_emails ne2
+               WHERE ne2.user_id = ? AND ne2.from_address = ne.from_address
+               ORDER BY received_at DESC LIMIT 1) as latest_email_id
+       FROM newsletter_emails ne
+       WHERE user_id = ? AND is_confirmation = 0
+       GROUP BY from_address
+       ORDER BY last_received DESC`
+    )
+    .all(userId, userId) as NewsletterSubscription[];
+}
+
 // ── Unified Feed ──────────────────────────────────────────────
 
 export function getUnifiedFeed(

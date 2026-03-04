@@ -9,43 +9,28 @@
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;">
 
-        <!-- Gradient bar -->
-        <tr><td style="height:3px;background:linear-gradient(to right,#00b4d8,#0077b6,#023e8a);font-size:0;">&nbsp;</td></tr>
-
         <!-- Header -->
-        <tr><td style="padding:20px 24px;border-bottom:1px solid #eee;">
-          <span style="font-family:'Courier New',Courier,monospace;font-size:18px;font-weight:bold;color:#262626;">newsletter digest</span>
-          <span style="font-family:'Courier New',Courier,monospace;font-size:13px;color:#8e8e8e;margin-left:8px;">{{ digest_date }}</span>
+        <tr><td style="padding:20px 24px;border-bottom:1px solid #eee;" align="center">
+          <table cellpadding="0" cellspacing="0"><tr><td align="center" style="line-height:1;">
+            <span style="font-size:32px;font-weight:900;font-family:'Arial Black',Arial,sans-serif;letter-spacing:-0.5px;color:#E8401C;">Føhns</span>
+            <span style="font-size:32px;font-weight:900;font-family:'Arial Black',Arial,sans-serif;letter-spacing:-0.5px;color:#1A2C4E;">Stiftstidende</span>
+            <br>
+            <span style="font-size:11px;font-weight:600;color:#1A2C4E;letter-spacing:0.5px;font-family:Arial,sans-serif;">news.raakode.dk</span>
+          </td></tr></table>
+          <div style="margin-top:12px;font-family:'Courier New',Courier,monospace;font-size:13px;color:#8e8e8e;">{{ digest_date }}</div>
         </td></tr>
 
-        <!-- Summary -->
+        <!-- Digest content -->
         <tr><td style="padding:20px 24px;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:1px solid #eee;border-radius:8px;">
-            <tr><td style="padding:16px 20px;">
-              <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:15px;font-weight:bold;color:#262626;">
-                {{ email_count }} newsletter{{ 's' if email_count != 1 else '' }} summarized
-              </p>
-            </td></tr>
-          </table>
+          <div style="font-family:'Courier New',Courier,monospace;font-size:13px;color:#262626;line-height:1.6;">
+            {{ digest_content }}
+          </div>
         </td></tr>
-
-        <!-- Newsletter summaries -->
-        {% for item in summaries %}
-        <tr><td style="padding:4px 24px 12px;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #dbdbdb;border-radius:8px;margin-bottom:4px;">
-            <tr><td style="padding:12px 14px;">
-              <p style="margin:0 0 4px;font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:bold;color:#262626;">{{ item.subject }}</p>
-              <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:11px;color:#8e8e8e;">{{ item.from }} &middot; {{ item.received_at }}</p>
-              <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:13px;color:#262626;line-height:1.5;white-space:pre-line;">{{ item.summary }}</p>
-            </td></tr>
-          </table>
-        </td></tr>
-        {% endfor %}
 
         <!-- Footer -->
         <tr><td style="padding:16px 24px;border-top:1px solid #eee;">
           <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:11px;color:#8e8e8e;">
-            <a href="{{ base_url }}/settings" style="color:#8e8e8e;text-decoration:underline;">Manage settings</a>
+            <a href="{{ base_url }}/settings" style="color:#8e8e8e;text-decoration:underline;">Administrer indstillinger</a>
           </p>
         </td></tr>
 

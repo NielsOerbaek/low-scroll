@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Logo } from "@/components/logo";
 
 export default function NewsGatePage() {
   const [password, setPassword] = useState("");
@@ -21,7 +22,7 @@ export default function NewsGatePage() {
     if (res.ok) {
       window.location.href = "/";
     } else {
-      setError("Wrong password");
+      setError("Forkert adgangskode");
       setLoading(false);
     }
   }
@@ -29,12 +30,12 @@ export default function NewsGatePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
-        <h1 className="text-lg font-semibold text-center">Newsletter Dashboard</h1>
+        <div className="flex justify-center"><Logo /></div>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
+          placeholder="Adgangskode"
           autoFocus
           className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
@@ -43,7 +44,7 @@ export default function NewsGatePage() {
           disabled={loading || !password}
           className="inline-flex items-center justify-center w-full rounded-md bg-primary text-primary-foreground h-9 px-4 text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
         >
-          {loading ? "..." : "Enter"}
+          {loading ? "..." : "Log ind"}
         </button>
         {error && <p className="text-sm text-red-600 text-center">{error}</p>}
       </form>

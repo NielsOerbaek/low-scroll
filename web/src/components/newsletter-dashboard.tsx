@@ -29,7 +29,28 @@ interface Schedule {
   enabled: boolean;
 }
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+interface Subscription {
+  from_address: string;
+  to_address: string;
+  email_count: number;
+  last_received: string;
+  latest_email_id: number;
+}
+
+interface DigestRun {
+  id: number;
+  digest_date: string;
+  email_count: number;
+  started_at: string;
+  finished_at: string | null;
+  status: string;
+  error: string | null;
+}
+
+const DEFAULT_SYSTEM_PROMPT = "Summarize this newsletter email thoroughly. Include all notable stories, data points, and takeaways. Use bullet points and cover both main stories and smaller items. Use plain text, no markdown.";
+const DEFAULT_DIGEST_PROMPT = "Structure this newsletter digest by grouping related stories and themes together. For each theme or story, reference which newsletter(s) it appeared in (by name/sender). If a story appears in multiple newsletters, combine the coverage. Put the most important or widely-covered stories first. Include smaller standalone items at the end.";
+
+const DAY_LABELS = ["Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"];
 const WEEKDAYS = [1, 2, 3, 4, 5];
 const WEEKEND = [0, 6];
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -40,9 +61,19 @@ export function NewsletterDashboard() {
   const [newRecipient, setNewRecipient] = useState("");
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [digestPrompt, setDigestPrompt] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [expandedEmailId, setExpandedEmailId] = useState<number | null>(null);
+  const [emailBody, setEmailBody] = useState<string | null>(null);
+  const [emailSummary, setEmailSummary] = useState<string | null>(null);
+  const [loadingBody, setLoadingBody] = useState(false);
+  const [digestRuns, setDigestRuns] = useState<DigestRun[]>([]);
+  const [expandedDigestId, setExpandedDigestId] = useState<number | null>(null);
+  const [digestHtml, setDigestHtml] = useState<string | null>(null);
+  const [loadingDigest, setLoadingDigest] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
 
   useEffect(() => {
     fetch("/api/newsletter")
@@ -51,9 +82,16 @@ export function NewsletterDashboard() {
         setEmails(data.emails || []);
         setRecipients(data.recipients || []);
         setSchedules(data.schedules || []);
-        setSystemPrompt(data.systemPrompt || "");
+        setSystemPrompt(data.systemPrompt || DEFAULT_SYSTEM_PROMPT);
+        setDigestPrompt(data.digestPrompt || DEFAULT_DIGEST_PROMPT);
         setLoading(false);
       });
+    fetch("/api/newsletter?view=digests")
+      .then((r) => r.json())
+      .then((data) => setDigestRuns(data.runs || []));
+    fetch("/api/newsletter?view=subscriptions")
+      .then((r) => r.json())
+      .then((data) => setSubscriptions(data.subscriptions || []));
   }, []);
 
   async function save(partial: Record<string, any>) {
@@ -64,7 +102,7 @@ export function NewsletterDashboard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(partial),
     });
-    setMessage("Saved.");
+    setMessage("Gemt.");
     setSaving(false);
     setTimeout(() => setMessage(""), 2000);
   }
@@ -121,212 +159,453 @@ export function NewsletterDashboard() {
     setEmails((prev) => prev.filter((e) => e.id !== id));
   }
 
+  async function toggleEmailBody(id: number) {
+    if (expandedEmailId === id) {
+      setExpandedEmailId(null);
+      setEmailBody(null);
+      setEmailSummary(null);
+      return;
+    }
+    setExpandedEmailId(id);
+    setEmailBody(null);
+    setEmailSummary(null);
+    setLoadingBody(true);
+    const res = await fetch(`/api/newsletter?view=email&id=${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setEmailBody(data.body_html || data.body_text || null);
+      setEmailSummary(data.summary || null);
+    }
+    setLoadingBody(false);
+  }
+
+  async function toggleDigestHtml(id: number) {
+    if (expandedDigestId === id) {
+      setExpandedDigestId(null);
+      setDigestHtml(null);
+      return;
+    }
+    setExpandedDigestId(id);
+    setDigestHtml(null);
+    setLoadingDigest(true);
+    const res = await fetch(`/api/newsletter?view=digest&id=${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setDigestHtml(data.html || null);
+    }
+    setLoadingDigest(false);
+  }
+
   function statusBadge(email: NewsletterEmail) {
     if (email.is_confirmation) {
       return email.confirmation_clicked
-        ? <Badge variant="secondary" className="text-xs">Confirmed</Badge>
-        : <Badge className="bg-yellow-100 text-yellow-800 text-xs">Awaiting confirm</Badge>;
+        ? <Badge variant="secondary" className="text-xs">Bekræftet</Badge>
+        : <Badge className="bg-yellow-100 text-yellow-800 text-xs">Afventer bekræftelse</Badge>;
     }
     if (email.digest_date) {
-      return <Badge className="bg-green-100 text-green-800 text-xs">Digested {email.digest_date}</Badge>;
+      return <Badge className="bg-green-100 text-green-800 text-xs">Fordøjet {email.digest_date}</Badge>;
     }
     if (email.processed) {
-      return <Badge className="bg-blue-100 text-blue-800 text-xs">Processed</Badge>;
+      return <Badge className="bg-blue-100 text-blue-800 text-xs">Behandlet</Badge>;
     }
-    return <Badge variant="secondary" className="text-xs">Pending</Badge>;
+    return <Badge variant="secondary" className="text-xs">Afventer</Badge>;
   }
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr + "Z");
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   }
 
-  if (loading) return <p>Loading...</p>;
+  function timeAgo(dateStr: string) {
+    const now = Date.now();
+    const then = new Date(dateStr + "Z").getTime();
+    const diffMs = now - then;
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 60) return `${minutes} min siden`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} time${hours !== 1 ? "r" : ""} siden`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} dag${days !== 1 ? "e" : ""} siden`;
+    const months = Math.floor(days / 30);
+    return `${months} måned${months !== 1 ? "er" : ""} siden`;
+  }
+
+  if (loading) return <p>Indlæser...</p>;
+
+  const textareaClass = "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
   return (
-    <div className="space-y-8">
-      {/* ── Recipients ────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold">Digest Recipients</h2>
-          <p className="text-sm text-muted-foreground">
-            Email addresses that receive the newsletter digest
-          </p>
+    <div className="max-w-[1600px] mx-auto space-y-8">
+      {/* ── Explainer ─────────────────────────────────────────── */}
+      <div className="space-y-4 max-w-3xl mx-auto text-center">
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground font-mono">
+          <span className="px-2 py-1 rounded border bg-background">Nyhedsbreve</span>
+          <span>&rarr;</span>
+          <span className="px-2 py-1 rounded border bg-background">Indbakke</span>
+          <span>&rarr;</span>
+          <span className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">Opsummering (AI)</span>
+          <span>&rarr;</span>
+          <span className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">Oversigt (AI)</span>
+          <span>&rarr;</span>
+          <span className="px-2 py-1 rounded border bg-background">Modtagere</span>
         </div>
+        <p className="text-sm text-muted-foreground">
+          Tilmeld dig nyhedsbreve med en vilkårlig adresse på <code className="px-1 py-0.5 bg-muted rounded text-xs">@news.raakode.dk</code>.
+          Hvert nyhedsbrev opsummeres enkeltvis med <strong>opsummeringsprompten</strong>, derefter samles alle opsummeringer
+          til en tematisk oversigt med <strong>oversigt-prompten</strong> og sendes til dine modtagere efter tidsplanen.
+        </p>
+      </div>
 
-        <Card>
-          <CardContent className="pt-6 space-y-3">
-            {recipients.map((email) => (
-              <div key={email} className="flex items-center gap-2">
-                <span className="text-sm flex-1 truncate">{email}</span>
-                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => removeRecipient(email)}>
-                  Remove
-                </Button>
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <Input
-                type="email"
-                value={newRecipient}
-                onChange={(e) => setNewRecipient(e.target.value)}
-                placeholder="add@example.com"
-                onKeyDown={(e) => e.key === "Enter" && addRecipient()}
-              />
-              <Button onClick={addRecipient} disabled={!newRecipient.trim()}>Add</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      <Separator />
-
-      {/* ── Schedules ─────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold">Digest Schedules</h2>
-          <p className="text-sm text-muted-foreground">
-            When to send digest emails. Multiple schedules supported.
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {schedules.map((schedule, i) => (
-            <Card key={schedule.id}>
-              <CardContent className="pt-5 space-y-3">
-                <div className="flex items-center gap-3">
-                  <Input
-                    value={schedule.name}
-                    onChange={(e) => updateSchedule(i, { name: e.target.value })}
-                    placeholder="e.g. Morning"
-                    className="flex-1"
-                  />
-                  <Input
-                    type="time"
-                    value={schedule.time}
-                    onChange={(e) => updateSchedule(i, { time: e.target.value })}
-                    className="w-28"
-                  />
-                  <Switch
-                    checked={schedule.enabled}
-                    onCheckedChange={(enabled) => updateSchedule(i, { enabled })}
-                  />
-                  <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => removeSchedule(i)}>
-                    Delete
-                  </Button>
-                </div>
-
-                {/* Day picker */}
-                <div className="space-y-2">
-                  <div className="flex gap-1">
-                    {DAY_LABELS.map((label, dayIndex) => (
-                      <button
-                        key={dayIndex}
-                        onClick={() => toggleDay(i, dayIndex)}
-                        className={`px-2 py-1 text-xs rounded border transition-colors ${
-                          schedule.days.includes(dayIndex)
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-muted-foreground border-input hover:bg-muted"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+      {/* ── Row 1: Settings (2 columns) ───────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left: Recipients + Schedules */}
+        <div className="space-y-6">
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold">Modtagere</h2>
+            <Card>
+              <CardContent className="pt-4 space-y-2">
+                {recipients.map((email) => (
+                  <div key={email} className="flex items-center gap-2">
+                    <span className="text-sm flex-1 truncate">{email}</span>
+                    <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => removeRecipient(email)}>
+                      Fjern
+                    </Button>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setPresetDays(i, "weekdays")} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Weekdays</button>
-                    <button onClick={() => setPresetDays(i, "weekend")} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Weekend</button>
-                    <button onClick={() => setPresetDays(i, "all")} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Every day</button>
-                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    value={newRecipient}
+                    onChange={(e) => setNewRecipient(e.target.value)}
+                    placeholder="tilføj@eksempel.dk"
+                    className="h-8 text-sm"
+                    onKeyDown={(e) => e.key === "Enter" && addRecipient()}
+                  />
+                  <Button size="sm" className="h-8" onClick={addRecipient} disabled={!newRecipient.trim()}>Tilføj</Button>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </section>
 
-        <Button variant="outline" onClick={addSchedule}>Add Schedule</Button>
-      </section>
-
-      <Separator />
-
-      {/* ── System Prompt ─────────────────────────────────────── */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold">Summarization Prompt</h2>
-          <p className="text-sm text-muted-foreground">
-            Instructions given to Claude for summarizing each newsletter
-          </p>
-        </div>
-
-        <Card>
-          <CardContent className="pt-6 space-y-3">
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Summarize this newsletter email concisely in 2-4 bullet points. Focus on the key information, news, or takeaways. Use plain text, no markdown."
-              rows={4}
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
-            <p className="text-xs text-muted-foreground">Leave empty for the default.</p>
-            <Button onClick={() => save({ systemPrompt })} disabled={saving}>
-              {saving ? "Saving..." : "Save Prompt"}
-            </Button>
-            {message && <p className="text-sm text-green-600">{message}</p>}
-          </CardContent>
-        </Card>
-      </section>
-
-      <Separator />
-
-      {/* ── Email List ────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold">Recent Emails</h2>
-          <p className="text-sm text-muted-foreground">
-            Last {emails.length} newsletter emails received
-          </p>
-        </div>
-
-        {emails.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No newsletter emails yet. Subscribe to newsletters using an address like <code className="px-1 py-0.5 bg-muted rounded text-xs">anything@news.raakode.dk</code>
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {emails.map((email) => (
-              <Card key={email.id}>
-                <CardContent className="py-3 px-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{email.subject}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {email.from_address} &rarr; {email.to_address}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {statusBadge(email)}
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatDate(email.received_at)}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => deleteEmail(email.id)}
-                      >
-                        Delete
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold">Tidsplaner</h2>
+            <div className="space-y-2">
+              {schedules.map((schedule, i) => (
+                <Card key={schedule.id}>
+                  <CardContent className="pt-4 pb-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={schedule.name}
+                        onChange={(e) => updateSchedule(i, { name: e.target.value })}
+                        placeholder="f.eks. Morgen"
+                        className="flex-1 h-8 text-sm"
+                      />
+                      <Input
+                        type="time"
+                        value={schedule.time}
+                        onChange={(e) => updateSchedule(i, { time: e.target.value })}
+                        className="w-24 h-8 text-sm"
+                      />
+                      <Switch
+                        checked={schedule.enabled}
+                        onCheckedChange={(enabled) => updateSchedule(i, { enabled })}
+                      />
+                      <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => removeSchedule(i)}>
+                        Slet
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex gap-1 flex-wrap">
+                      {DAY_LABELS.map((label, dayIndex) => (
+                        <button
+                          key={dayIndex}
+                          onClick={() => toggleDay(i, dayIndex)}
+                          className={`px-1.5 py-0.5 text-xs rounded border transition-colors ${
+                            schedule.days.includes(dayIndex)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-muted-foreground border-input hover:bg-muted"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" onClick={addSchedule}>Tilføj tidsplan</Button>
+          </section>
+        </div>
+
+        {/* Right: Prompts */}
+        <div className="space-y-6">
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold">Opsummeringsprompt</h2>
+            <Card>
+              <CardContent className="pt-4 space-y-2">
+                <textarea
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="Summarize this newsletter email thoroughly..."
+                  rows={4}
+                  className={textareaClass}
+                  style={{ fieldSizing: "content" } as React.CSSProperties}
+                />
+                <Button size="sm" className="h-7 text-xs" onClick={() => save({ systemPrompt })} disabled={saving}>
+                  {saving ? "Gemmer..." : "Gem"}
+                </Button>
+              </CardContent>
+            </Card>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold">Oversigt-prompt</h2>
+            <Card>
+              <CardContent className="pt-4 space-y-2">
+                <textarea
+                  value={digestPrompt}
+                  onChange={(e) => setDigestPrompt(e.target.value)}
+                  placeholder="Structure this newsletter digest by grouping related stories..."
+                  rows={4}
+                  className={textareaClass}
+                  style={{ fieldSizing: "content" } as React.CSSProperties}
+                />
+                <Button size="sm" className="h-7 text-xs" onClick={() => save({ digestPrompt })} disabled={saving}>
+                  {saving ? "Gemmer..." : "Gem"}
+                </Button>
+                {message && <p className="text-xs text-green-600">{message}</p>}
+              </CardContent>
+            </Card>
+          </section>
+        </div>
+      </div>
+
+      {/* ── Subscriptions ────────────────────────────────────── */}
+      {subscriptions.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold">Abonnementer</h2>
+              <p className="text-sm text-muted-foreground">
+                {subscriptions.length} nyhedsbreve du modtager. Klik på en for at se seneste e-mail (find afmeldingslink der).
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {subscriptions.map((sub) => (
+                <Card key={sub.from_address} className="cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => toggleEmailBody(sub.latest_email_id)}>
+                  <CardContent className="py-3 px-4">
+                    <p className="text-sm font-medium truncate">{sub.from_address}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        {sub.email_count} e-mail{sub.email_count !== 1 ? "s" : ""}
+                      </span>
+                      <span className="text-xs text-muted-foreground">&middot;</span>
+                      <span className="text-xs text-muted-foreground">
+                        Senest: {timeAgo(sub.last_received)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                      til: {sub.to_address}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        )}
-      </section>
+        </>
+      )}
+
+      <Separator />
+
+      {/* ── Row 2: Inbox + Digests (2 columns) ────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        {/* Inbox */}
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Indbakke</h2>
+            <p className="text-sm text-muted-foreground">
+              {emails.length} modtagne nyhedsbreve
+            </p>
+          </div>
+
+          {emails.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Ingen nyhedsbreve endnu.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {emails.map((email) => (
+                <Card key={email.id}>
+                  <CardContent className="py-3 px-4">
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => toggleEmailBody(email.id)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{email.subject}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {email.from_address}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs shrink-0"
+                          onClick={(e) => { e.stopPropagation(); deleteEmail(email.id); }}
+                        >
+                          Slet
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {statusBadge(email)}
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(email.received_at)}
+                        </span>
+                      </div>
+                    </div>
+                    {expandedEmailId === email.id && (
+                      <div className="mt-3 border-t pt-3 space-y-3">
+                        {loadingBody ? (
+                          <p className="text-sm text-muted-foreground">Indlæser...</p>
+                        ) : (
+                          <>
+                            {emailSummary && (
+                              <div className="rounded border bg-blue-50 p-3">
+                                <p className="text-xs font-semibold text-blue-700 mb-1">AI-opsummering</p>
+                                <p className="text-sm whitespace-pre-wrap">{emailSummary}</p>
+                              </div>
+                            )}
+                            {emailBody ? (
+                              <details>
+                                <summary className="text-xs text-muted-foreground cursor-pointer">Vis original e-mail</summary>
+                                <iframe
+                                  srcDoc={emailBody}
+                                  className="w-full border rounded bg-white mt-2"
+                                  style={{ minHeight: 300 }}
+                                  sandbox="allow-same-origin"
+                                  title={email.subject}
+                                  onLoad={(e) => {
+                                    const frame = e.target as HTMLIFrameElement;
+                                    const doc = frame.contentDocument;
+                                    if (doc) {
+                                      doc.querySelectorAll("img").forEach((img) => {
+                                        img.onerror = () => { img.style.display = "none"; };
+                                      });
+                                      frame.style.height = doc.documentElement.scrollHeight + "px";
+                                    }
+                                  }}
+                                />
+                              </details>
+                            ) : !emailSummary ? (
+                              <p className="text-sm text-muted-foreground">Intet indhold tilgængeligt.</p>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sent Digests */}
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Sendte oversigter</h2>
+            <p className="text-sm text-muted-foreground">
+              Tidligere genererede oversigter
+            </p>
+          </div>
+
+          {digestRuns.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Ingen oversigter sendt endnu.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {digestRuns.map((run) => (
+                <Card key={run.id}>
+                  <CardContent className="py-3 px-4">
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => toggleDigestHtml(run.id)}
+                    >
+                      <p className="text-sm font-medium">
+                        Oversigt {run.digest_date}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge
+                          className={
+                            run.status === "success"
+                              ? "bg-green-100 text-green-800 text-xs"
+                              : run.status === "error"
+                              ? "bg-red-100 text-red-800 text-xs"
+                              : "text-xs"
+                          }
+                          variant="secondary"
+                        >
+                          {run.status === "success" ? "Sendt" : run.status === "error" ? "Fejl" : run.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {run.email_count} e-mail{run.email_count !== 1 ? "s" : ""}
+                        </span>
+                        {run.finished_at && (
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(run.finished_at)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {run.error && (
+                      <p className="text-xs text-red-600 mt-1">{run.error}</p>
+                    )}
+                    {expandedDigestId === run.id && (
+                      <div className="mt-3 border-t pt-3">
+                        {loadingDigest ? (
+                          <p className="text-sm text-muted-foreground">Indlæser...</p>
+                        ) : digestHtml ? (
+                          <iframe
+                            srcDoc={digestHtml}
+                            className="w-full border rounded bg-white"
+                            style={{ minHeight: 400 }}
+                            sandbox="allow-same-origin"
+                            title={`Oversigt ${run.digest_date}`}
+                            onLoad={(e) => {
+                              const frame = e.target as HTMLIFrameElement;
+                              const doc = frame.contentDocument;
+                              if (doc) {
+                                doc.querySelectorAll("img").forEach((img) => {
+                                  img.onerror = () => { img.style.display = "none"; };
+                                });
+                                frame.style.height = doc.documentElement.scrollHeight + "px";
+                              }
+                            }}
+                          />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Ingen HTML gemt for denne oversigt.</p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

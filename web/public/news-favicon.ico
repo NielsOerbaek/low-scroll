@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="utf-8">
+    <title>fyens.dk</title>
+<link rel="stylesheet" href="/assets/1772528852/kodus/jfm-site/css/error_page.css" />
+            <script>
+                const isSafari = navigator.userAgent.match(/(iPod|iPhone|iPad)/) && navigator.userAgent.match(/AppleWebKit/);
+            
+                if (/MSIE \d|Edge\/|Trident.*rv:/.test(navigator.userAgent) || isSafari) {
+                    document.write('<script src=\"/assets/1772528852/kodus/jfm-site/js/app/polyfill.js\"><\/script>'); 
+                }
+            </script>
+    <script type="application/javascript">
+        window.holdCookieConsent = true;
+        import("/assets/1772528852/kodus/jfm-site/js/app/pugpigCookieConsent.js")
+    </script>
+<script id="didomi" type="text/javascript">
+window.gdprAppliesGlobally=true;const initDidomi = function(){function a(e){if(!window.frames[e])
+{if(document.body&&document.body.firstChild){var t=document.body;var n=document.createElement("iframe");
+n.style.display="none";n.name=e;n.title=e;t.insertBefore(n,t.firstChild)} else{setTimeout(
+function(){a(e)},5)}}}function e(n,r,o,c,s){function e(e,t,n,a){if(typeof n!=="function"){return}
+if(!window[r]){window[r]=[]}var i=false;if(s){i=s(e,t,n)}if(!i){window[r].push(
+{command:e,parameter:t,callback:n,version:a})}}e.stub=true;function t(a){if(!window[n]||window[n].stub!==true)
+{return}if(!a.data){return}var i=typeof a.data==="string";var e;try{e=i?JSON.parse(a.data):a.data}catch(t)
+{return}if(e[o]){var r=e[o];window[n](r.command,r.parameter,function(e,t)
+{var n={};n[c]={returnValue:e,success:t,callId:r.callId};a.source.postMessage(
+i?JSON.stringify(n):n,"*")},r.version)}}if(typeof window[n]!=="function"){window[n]=e;
+if(window.addEventListener){window.addEventListener("message",t,false)}else{window.attachEvent("onmessage",t)}}}
+e("__tcfapi","__tcfapiBuffer","__tcfapiCall","__tcfapiReturn");a("__tcfapiLocator");(function(e){
+var t=document.createElement("script");t.id="spcloader";t.type="text/javascript";t.async=true;
+t.src="https://sdk.privacy-center.org/"+e+"/loader.js?target="+document.location.hostname;t.charset="utf-8";
+var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(t,n)})
+("d0661bea-d696-4069-b308-11057215c4c4")};
+
+if (window.holdCookieConsent !== true) {
+    initDidomi()
+} else {
+    window.addEventListener('showConsentWindow', initDidomi);
+}
+</script>
+<script type="text/javascript">
+window.didomiConfig = { user: {
+    externalConsent: {
+      enabled: true
+    },
+    bots: {
+      consentRequired: false
+    }
+} }
+
+let consentTimeout = undefined;
+let callbacks = ["handleBannerFreeSubscription","setEnabledAdPositions","enableAds","checkEnabledAdPositions"];
+
+async function waitForConsent(Didomi) {
+    clearTimeout(consentTimeout);
+    if (!Didomi.notice.isVisible()) {
+        for( const callback of callbacks ) {
+            if (typeof window[callback] !== "function") continue;
+            
+            try {
+              await window[callback]();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    } else {
+        consentTimeout = setTimeout(function () { waitForConsent(Didomi) }, 10)
+    }
+}
+
+window.didomiOnReady = window.didomiOnReady || [];
+window.didomiOnReady.push(waitForConsent);
+</script>
+    <script type="text/javascript" src="https://macro.adnami.io/macro/spec/adsm.macro.b74edc44-5c2b-475f-a4b7-d39f784e159b.js" defer></script>
+    <script type="text/javascript">
+        var adsmtag = adsmtag || {};
+        adsmtag.cmd = adsmtag.cmd || [];
+    </script>
+    <link 
+        rel="apple-touch-icon"
+        type="image/png" 
+        sizes="57x57" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/apple-icon-57x57.png"
+    >
+    <link 
+        rel="apple-touch-icon"
+        type="image/png" 
+        sizes="60x60" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/apple-icon-60x60.png"
+    >
+    <link 
+        rel="apple-touch-icon"
+        type="image/png" 
+        sizes="72x72" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/apple-icon-72x72.png"
+    >
+    <link 
+        rel="apple-touch-icon"
+        type="image/png" 
+        sizes="114x114" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/apple-icon-114x114.png"
+    >
+    <link 
+        rel="apple-touch-icon"
+        type="image/png" 
+        sizes="120x120" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/apple-icon-120x120.png"
+    >
+    <link 
+        rel="apple-touch-icon"
+        type="image/png" 
+        sizes="144x144" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/apple-icon-144x144.png"
+    >
+    <link 
+        rel="apple-touch-icon"
+        type="image/png" 
+        sizes="152x152" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/apple-icon-152x152.png"
+    >
+    <link 
+        rel="apple-touch-icon"
+        type="image/png" 
+        sizes="180x180" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/apple-icon-180x180.png"
+    >
+    <link 
+        rel="icon"
+        type="image/png" 
+        sizes="192x192" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/android-icon-192x192.png"
+    >
+    <link 
+        rel="icon"
+        type="image/png" 
+        sizes="96x96" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/favicon-96x96.png"
+    >
+    <link 
+        rel="icon"
+        type="image/png" 
+        sizes="32x32" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/favicon-32x32.png"
+    >
+    <link 
+        rel="icon"
+        type="image/png" 
+        sizes="16x16" 
+        href="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/favicon-16x16.png"
+    >
+<meta name="msapplication-TileColor" content="#ffffff" />
+<meta name="msapplication-TileImage" content="/assets/1772528852/kodus/jfm-brands/brands/fyens/favicons/ms-icon-144x144.png" />
+    <link rel="preconnect" href="https://images.jfmedier.dk">
+    <link rel="dns-prefetch" href="https://images.jfmedier.dk" />
+    <script type="text/javascript">
+    var logged_in = Boolean()
+    var purchase_flow_url = 'https://fyens.dk/abonnement'
+    
+    if (purchase_flow_url.charAt(0) === '/') {
+        purchase_flow_url = location.origin + purchase_flow_url;
+    }
+
+    window.didomiCustomData = {
+        purchase_flow_url,
+        current_page: location.href,
+        logged_in,
+    }
+    </script>
+    <script type="text/javascript">
+        const getLoginState = () => new Promise((resolve) => {
+            const sessionLoginState = JSON.parse(sessionStorage.getItem('LOGIN_STATE') || null);
+            
+            if(sessionLoginState) resolve(sessionLoginState);
+           
+            document.addEventListener('LOGIN_FINISHED', (e) => resolve(e?.detail || null), { once: true });
+        });
+        
+        async function hasBannerFreeSubscription() {
+            let loginState = await getLoginState();
+            
+            if(loginState === null || !loginState?.loggedIn) return false;
+            
+            let endpoint = "/api/getUserAdsEnablement";
+            const url = [endpoint, "?", loginState?.hashedEmail || ''].join('');
+           
+            return fetch(url)
+                .then(response => response.json())
+                .then(({ result }) => !result);
+        }
+        
+        async function handleBannerFreeSubscription() {
+            return hasBannerFreeSubscription()
+                .then((result) => {
+                    if (result === false) return;
+                    
+                    window.enable_banner_ads = false;
+                    document.querySelectorAll('.adblock,.adform__text,.grid-ad,.adform__topbanner,.finddet-widget,.section-sticky-banners,.adform__sticky').forEach(b => b.remove());
+                }
+            );
+        }
+
+        async function setEnabledAdPositions() {
+            let loginState = await getLoginState();
+            
+            if(loginState === null || !loginState?.loggedIn) return;
+            
+           if(Array.isArray(undefined)) {
+                // Restrict which ad positions are enabled, when user is logged in
+                window.enabledAdPositions = undefined;
+            }
+        }
+    </script>
+    <script type="text/javascript" 
+            src="/assets/1772528852/kodus/jfm-site/js/app/userIdSync.js"
+            data-create-user-id-map-endpoint="/amedia/api/v1/user-id-maps" 
+            defer>      
+    </script>
+    <script type="application/javascript" src="/assets/1772528852/kodus/sso-client/generated/js/redirect.js"></script>
+    <script type="application/javascript">
+        const ssoClientRedirect = initSsoClientRedirect("https://jfmid.dk/autologin", "/sso-client/reinstate-anonymous-session");
+    </script>
+    <script type="application/javascript" src="/assets/1772528852/kodus/jfm-site/js/app/pugpigAutologin.js"></script>
+    <script type="application/javascript">
+        const currentUrl = new URL(window.location.href);
+        const autologinReferral = currentUrl.searchParams.get('autologin-referral');
+
+        if (autologinReferral || autologinReferral === '') {
+            window.jfmReferrer = decodeURIComponent(autologinReferral);
+            
+            /* 
+            Remove the autologin-referral query parameter from the URL in the address bar without touching 
+            the history, in order to:
+               1. Avoid any existing autologin-referral being passed on as part of the return URL on refresh 
+               (ref-ception)
+               2. Make the URL look pretty in the address bar 
+            */
+            currentUrl.searchParams.delete('autologin-referral');
+            window.history.replaceState({}, document.title, currentUrl.toString());
+            
+            // Overwrite document.referrer with the autologin-referral
+            Object.defineProperty(window.document, 'referrer', {
+                writable: false,
+                configurable: false,
+                value: window.jfmReferrer
+            });
+        } else {
+           window.jfmReferrer = document.referrer;
+        }
+    </script>    <script type="application/javascript">
+        (function() {
+            // In Pugpig app context, authentication is handled by PugpigAutoLogin.
+            // Skip SSO autologin entirely and don't signal redirectAttempted yet - 
+            // PugpigAutoLogin may reload the page after syncing authentication state.
+            if (window.isPugpigContext) {
+                console.info("Autologin - Skipping (Pugpig context)");
+                return;
+            }
+            
+            const isRedirectedFromSsoServer = document.referrer && document.referrer.includes('https://jfmid.dk');
+            const isRedirectedFromSsoServerLogout = document.referrer && document.referrer.includes('https://jfmid.dk/log-ud?return_url=');
+            const isRedirectedFromSsoClient = autologinReferral !== null
+            
+            // Do not redirect if already redirected from SSO server or client (unless it was a logout)
+            if (isRedirectedFromSsoServer 
+                && !isRedirectedFromSsoServerLogout
+                || isRedirectedFromSsoClient) {
+                console.info("Autologin - Skipping");
+                window.redirectAttempted = true;
+            } else {
+                window.redirectAttempted = false;
+                console.info("Autologin - Checking");
+                const sessionLoginStateSerialized = sessionStorage.getItem('LOGIN_STATE');
+                const sessionLoginState = sessionLoginStateSerialized ? JSON.parse(sessionLoginStateSerialized) : null;
+                
+                const currentUrl = new URL(window.location.href);
+                
+                // Add autologin-referral query parameter to the return_url
+                if(document.referrer || document.referrer === ''){
+                    currentUrl.searchParams.set('autologin-referral', encodeURIComponent(document.referrer));
+                }
+                
+                window.redirectAttempted = ssoClientRedirect(sessionLoginState ? sessionLoginState.loggedIn : false, currentUrl.toString());
+            }
+            if (window.redirectAttempted) {
+                const event = new Event('sso_redirect_attempted');
+                document.dispatchEvent(event);
+            }
+        })();
+    </script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="ahrefs-site-verification" content="556c61c0f48d78d4c3c301146bf352c0c4607f6ddc3091367f433f9268812460" />
+    <script type='text/javascript'>window.enable_banner_ads = true;</script>
+    <script type='text/javascript'>window.isUserLoggedInEndpoint = '/api/authentication/user';</script>
+    <script type="text/javascript">
+        /* VideoSyndicate Advertisement fix */
+        window.is_jfm = true;
+    </script>
+<script async type='text/javascript'>
+            window.enable_banner_ads = window.enable_banner_ads || false;
+            window.display_queue = window.display_queue || [];
+            window.Quickwrap = window.Quickwrap || {cmd: []};
+
+            function emptyDisplayQueue() 
+            {
+                while (window.display_queue.length > 0) {
+                    window.Quickwrap.cmd.push(window.display_queue.shift());
+                }
+                
+                window.display_queue = { push: function (e) { window.Quickwrap.cmd.push(e) } };
+            }
+            
+            function initAds() {
+
+                const gads = document.createElement('script');
+                gads.async = true;
+                gads.type = 'text/javascript';
+                const useSSL = 'https:' == document.location.protocol;
+                gads.referrerpolicy = 'no-referrer-when-downgrade';
+                gads.src = (useSSL ? 'https:' : 'http:') + '//' + 'SZMerjSDbPH3CMsgq' + '.ay.delivery/manager/' + 'SZMerjSDbPH3CMsgq';
+                const node = document.getElementsByTagName('script')[0];
+                node.parentNode.insertBefore(gads, node);
+                
+                gads.onload = () => {
+                    if (Object.hasOwn(window, 'googletag')) {
+                        window.googletag.cmd.push(function() {
+                           googletag.pubads().setTargeting('fyens.dk', ["ros"]);
+                        });
+                    }
+                };
+                
+                emptyDisplayQueue();
+            }
+            
+            function enableAds() {
+                if (window.enable_banner_ads !== false) {
+                    initAds();
+                }
+            }</script>
+    <link rel="preconnect" href="https://tags.tiqcdn.com/">
+    <link rel="preconnect" href="https://tags.tiqcdn.com/" crossorigin>
+    <link rel="dns-prefetch" href="https://tags.tiqcdn.com/" />
+    <link rel="preload" href="/assets/1772528852/kodus/jfm-site/fonts/roboto-condensed-v16-latin-ext_latin-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined" rel="preload">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=account_circle" />
+    <link rel="stylesheet" type="text/css" href="/assets/1772528852/kodus/jfm-site/css/base.css" />
+    <script type="text/javascript" src="/assets/1772528852/kodus/jfm-site/js/app/base.js" defer></script></head>
+<body>
+<script type='text/javascript'>    window.cachedUtagData = {"site_name":"fyens.dk","application_type":"web","page_name":"Fyens.dk \u2192 Seneste nyt | fyens.dk","page_type":""};
+    window.utagUrl = 'https://tags.tiqcdn.com/utag/jysk-fynske-medier/news/prod/utag.js';
+    window.tealiumUserDataUrl = '/generated-asset/tealium-user-data';</script>
+<script type='text/javascript' src='/assets/1772528852/kodus/jfm-site/js/app/tealium.js' defer></script>
+
+    <section class="page fyens theme-default has-navigation has-navigation--desktop has-navigation--mobile"
+             data-paywall-container data-aid="test">
+        <a href="#skip-to-content" class="skip-to-content-link btn btn--primary">Gå til indhold</a>
+        <div data-popover-container></div>
+        <div class="page__topscroll-ad-unit" data-ad-container="top.scroll.ad.unit.desktop">
+                    </div>
+
+                        <header class="header" role="banner">
+        <div class="header__grid">
+            <nav class="header__buy" aria-label="Handlingsmenu">
+                
+    <section class="header-actions">
+                    <div class="header-actions__item">
+                <a href="https://fyens.dk/abonnement"
+                   class="btn btn--primary header-actions__btn header-actions__btn--purchase"
+                   data-promo-btn
+                   data-remove-in-app
+                   data-inspect="header:buy-subscription">
+                    <span class="header-actions__text long">Køb abonnement</span>
+                    <span class="header-actions__text short">Køb</span>
+                </a>
+            </div>
+            </section>
+                </nav>
+
+            <section class="header__brand">
+                <a class="header__brand-link" href="/" aria-label="Logo">
+                    <picture class="logo" role="img" aria-label="fyens.dk"></picture>
+                </a>
+            </section>
+
+                            <nav class="header__primary-navigation" role="navigation" aria-label="Primær navigation">
+                        <div class="main-navigation main-navigation--primary">
+        <ul class="main-navigation__list">
+                            <li class="main-navigation__item">
+                    <a href="/odense"
+                       target=""
+                       class=" main-navigation__link">
+                        Odense                    </a>
+                </li>
+                            <li class="main-navigation__item">
+                    <a href="/faaborg-midtfyn"
+                       target=""
+                       class=" main-navigation__link">
+                        Faaborg-Midtfyn                    </a>
+                </li>
+                            <li class="main-navigation__item">
+                    <a href="/assens"
+                       target=""
+                       class=" main-navigation__link">
+                        Assens                    </a>
+                </li>
+                            <li class="main-navigation__item">
+                    <a href="/middelfart"
+                       target=""
+                       class=" main-navigation__link">
+                        Middelfart                    </a>
+                </li>
+                            <li class="main-navigation__item">
+                    <a href="/nordfyn"
+                       target=""
+                       class=" main-navigation__link">
+                        Nordfyn                    </a>
+                </li>
+                            </nav>
+            
+            <nav class="header__actions" aria-label="Handlingsmenu">
+                    <section class="header-actions header-actions--top">
+        <section class="header-actions hide-desktop">
+                            <div class="header-actions__item">
+                    <a href="https://fyens.dk/abonnement"
+                       class="btn btn--primary header-actions__btn header-actions__btn--purchase"
+                       data-promo-btn
+                       data-remove-in-app
+                       data-inspect="header:buy-subscription">
+                        <span class="header-actions__text long">Køb abonnement</span>
+                        <span class="header-actions__text short">Køb</span>
+                    </a>
+                </div>
+                    </section>
+                <div class="header-actions__item" data-remove-in-app>
+            <button class="btn btn--user header-actions__btn header-actions__btn--icon show-if-logged-in"
+                    type="button"
+                    data-user-navigation-btn
+                    aria-label="Min profil"
+            >
+                <i class="btn__icon btn__icon--focus material-icons material-icons-filled">person</i>
+                <span class="header-actions__text">Min profil</span>
+            </button>
+            <button class="btn btn--user header-actions__btn header-actions__btn--icon show-if-logged-out"
+                    type="button"
+                    data-inspect="header:login"
+                    data-user-navigation-btn
+                    aria-label="Log ind"
+            >
+                <i class="btn__icon material-icons-outlined">
+                    person_outline
+                </i>
+                <span class="header-actions__text">Log ind</span>
+            </button>
+        </div>
+
+        <div class="header-actions__item">
+            <button
+                class="btn btn--no-style"
+                data-mega-navigation-btn
+                aria-label="Åben Menu"
+            >
+                <div class="header-actions__icon">
+                    <div class="burger-icon header__burger-icon" data-mega-navigation-btn-icon>
+                        <span class="burger-icon__line"></span>
+                        <span class="burger-icon__line"></span>
+                        <span class="burger-icon__line"></span>
+                    </div>
+                </div>
+            </button>
+        </div>
+    </section>
+                </nav>
+
+                            <nav class="header__secondary-navigation" role="navigation" aria-label="Sekundær navigation">
+                        
+    <div class="main-navigation main-navigation--secondary splide" data-splide-main-navigation data-splide-active-index aria-label="Main navigation" tabindex="0">
+                <div class="splide__track">
+        
+            <ul class="main-navigation__list splide__list">
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/odense'
+           target=''
+           class=' main-navigation__link'
+            >
+            Odense        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/faaborg-midtfyn'
+           target=''
+           class=' main-navigation__link'
+            >
+            Faaborg-Midtfyn        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/assens'
+           target=''
+           class=' main-navigation__link'
+            >
+            Assens        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/middelfart'
+           target=''
+           class=' main-navigation__link'
+            >
+            Middelfart        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/nordfyn'
+           target=''
+           class=' main-navigation__link'
+            >
+            Nordfyn        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/kerteminde'
+           target=''
+           class=' main-navigation__link'
+            >
+            Kerteminde        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/nyborg'
+           target=''
+           class=' main-navigation__link'
+            >
+            Nyborg        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/sydfyn'
+           target=''
+           class=' main-navigation__link'
+            >
+            Sydfyn        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='https://direktesport.dk'
+           target='_blank'
+           class=' main-navigation__link'
+            >
+            DirekteSport        </a>
+
+            </li>
+
+                            </ul>
+                </div>
+            </div>
+                </nav>
+            
+                            <nav class="header__mobile-navigation" role="navigation" aria-label="Mobilnavigation">
+                        
+    <div class="main-navigation main-navigation--mobile splide" data-splide-main-navigation data-splide-active-index aria-label="Mobil navigation" tabindex="0">
+                <div class="splide__track">
+        
+            <ul class="main-navigation__list splide__list">
+
+                                    
+    <li class="main-navigation__item splide__slide main-navigation__item--dropdown" data-main-navigation-dropdown>
+        <a href='#'
+           target=''
+           class=' main-navigation__link'
+            aria-haspopup="true" aria-expanded="false">
+            Nyheder        </a>
+
+                    <ul class="main-navigation__list">
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/odense'
+           target=''
+           class=' main-navigation__link'
+            >
+            Odense        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/faaborg-midtfyn'
+           target=''
+           class=' main-navigation__link'
+            >
+            Faaborg-Midtfyn        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/assens'
+           target=''
+           class=' main-navigation__link'
+            >
+            Assens        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/middelfart'
+           target=''
+           class=' main-navigation__link'
+            >
+            Middelfart        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/nordfyn'
+           target=''
+           class=' main-navigation__link'
+            >
+            Nordfyn        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/kerteminde'
+           target=''
+           class=' main-navigation__link'
+            >
+            Kerteminde        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/nyborg'
+           target=''
+           class=' main-navigation__link'
+            >
+            Nyborg        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/sydfyn'
+           target=''
+           class=' main-navigation__link'
+            >
+            Sydfyn        </a>
+
+            </li>
+                            </ul>
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/podcasts'
+           target=''
+           class=' main-navigation__link'
+            >
+            Lyd        </a>
+
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide main-navigation__item--dropdown" data-main-navigation-dropdown>
+        <a href='#'
+           target=''
+           class=' main-navigation__link'
+            aria-haspopup="true" aria-expanded="false">
+            Spil        </a>
+
+                    <ul class="main-navigation__list">
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/spil/dagens-ord'
+           target=''
+           class=' main-navigation__link'
+            >
+            Dagens ord        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/spil/krydsord'
+           target=''
+           class=' main-navigation__link'
+            >
+            Krydsord        </a>
+
+            </li>
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='/spil/sudoku'
+           target=''
+           class=' main-navigation__link'
+            >
+            Sudoku        </a>
+
+            </li>
+                            </ul>
+            </li>
+
+                                    
+    <li class="main-navigation__item splide__slide">
+        <a href='https://direktesport.dk/'
+           target='_blank'
+           class=' main-navigation__link'
+            >
+            DirekteSport        </a>
+
+            </li>
+
+                            </ul>
+                </div>
+            </div>
+                </nav>
+                        <!-- Mega menu -->
+                <div class="drawer" data-drawer="mega-navigation">
+            <div class="mega-navigation" data-mega-navigation>
+        <div class="drawer-navigation">
+            <form
+                class="navigation-search"
+                action="/soeg"
+                method="get"
+                role="search">
+                <input
+                   name="keywords"
+                   type="search"
+                   placeholder="Søg"
+                   aria-label="Indtast dit søgeord"
+                   value=""
+                   data-tealium-search-input class="navigation-search__input" >
+                <button
+                        class="navigation-search__button"
+                        aria-label="Søg"
+                >
+                    <span class="material-icons-outlined profile-card__profile-icon">
+                        search
+                    </span>
+                </button>
+            </form>
+                                <span class="drawer-navigation__title">Nyheder</span>
+                    <nav class="drawer-navigation__items">
+                                                        <div class="drawer-navigation__item">
+                    <button class="drawer-navigation__link "
+                    >
+                Lokalt                <div class="drawer-navigation__expand-button">
+                    <span class="material-icons-outlined profile-card__profile-icon">
+                        expand_more
+                    </span>
+                </div>
+            </button>
+            <div class="drawer-navigation__children">
+                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/odense'               target=""
+                    >
+                Odense            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/faaborg-midtfyn'               target=""
+                    >
+                Faaborg-Midtfyn            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/middelfart'               target=""
+                    >
+                Middelfart            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/assens'               target=""
+                    >
+                Assens            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/nordfyn'               target=""
+                    >
+                Nordfyn            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/kerteminde'               target=""
+                    >
+                Kerteminde            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/nyborg'               target=""
+                    >
+                Nyborg            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/sydfyn'               target=""
+                    >
+                Sydfyn            </a>
+            </div>
+                                </div>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <button class="drawer-navigation__link "
+                    >
+                Sektioner                <div class="drawer-navigation__expand-button">
+                    <span class="material-icons-outlined profile-card__profile-icon">
+                        expand_more
+                    </span>
+                </div>
+            </button>
+            <div class="drawer-navigation__children">
+                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/112'               target=""
+                    >
+                Alarm 112            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/bagsiden'               target=""
+                    >
+                Bagsiden            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/bolig-og-livsstil'               target=""
+                    >
+                Bolig og livsstil            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/debat'               target=""
+                    >
+                Debat            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/dodsannoncer'               target=""
+                    >
+                Dødsannoncer            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/erhverv'               target=""
+                    >
+                Erhverv            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/gear'               target=""
+                    >
+                Gear            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/jobbasen'               target=""
+                    >
+                Jobbasen            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/klima'               target=""
+                    >
+                Klima            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/kultur'               target=""
+                    >
+                Kultur            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/mad'               target=""
+                    >
+                Mad            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/madanmeldelser'               target=""
+                    >
+                Madanmeldelser            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/navne'               target=""
+                    >
+                Navne            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/ob'               target=""
+                    >
+                OB            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/rejser'               target=""
+                    >
+                Rejser            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/sport'               target=""
+                    >
+                Sport            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/farmor'               target=""
+                    >
+                Tema: Hvem skal passe farmor?            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/ung'               target=""
+                    >
+                Tema: Ung og aldrig god nok            </a>
+            </div>
+                                </div>
+            </div>
+                                               </nav>
+                                <span class="drawer-navigation__title">Mit indhold</span>
+                    <nav class="drawer-navigation__items">
+                                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='http://direktesport.dk'               target="_blank"
+                    >
+                DirekteSport            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/eavis'               target=""
+                    >
+                E-avis            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/erhvervsbasen'               target=""
+                    >
+                Erhvervsbasen            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/kandidattest'               target=""
+                    >
+                Kandidattesten            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/nyhedsbrev'               target=""
+                    >
+                Nyhedsbrev            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/athena'               target=""
+                    >
+                Oplæste nyheder            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/podcasts'               target=""
+                    >
+                Podcast            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <button class="drawer-navigation__link "
+                    >
+                Spil                <div class="drawer-navigation__expand-button">
+                    <span class="material-icons-outlined profile-card__profile-icon">
+                        expand_more
+                    </span>
+                </div>
+            </button>
+            <div class="drawer-navigation__children">
+                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/spil/dagens-ord'               target=""
+                    >
+                Dagens Ord            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/spil/krydsord'               target=""
+                    >
+                Krydsord            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/spil/sudoku'               target=""
+                    >
+                Sudoku            </a>
+            </div>
+                                </div>
+            </div>
+                                               </nav>
+                                <span class="drawer-navigation__title">Annoncering</span>
+                    <nav class="drawer-navigation__items">
+                                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/annoncebygger'               target=""
+                    >
+                Bestil dødsannonce            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://business.jfm.dk/nyhedsmedier/aviser-og-nyhedssites/fyens-stiftstidende/'               target="_blank"
+                    >
+                Køb annoncering            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://business.jfm.dk/native/native/'               target="_blank"
+                    >
+                Køb native artikel            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/artikel/prisliste-for-redaktionelt-materiale-fra-jysk-fynske-medier-2018-12-27(6)'               target=""
+                    >
+                Prisliste for indhold            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/annoncoerbetaltindhold'               target=""
+                    >
+                Se sponsoreret indhold            </a>
+            </div>
+                                               </nav>
+                                <span class="drawer-navigation__title">Fyens Stiftstidende</span>
+                    <nav class="drawer-navigation__items">
+                                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/arkiv'               target=""
+                    >
+                Arkiv            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/detsker'               target=""
+                    >
+                Det sker            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/eventinfo'               target=""
+                    >
+                Eventinfo            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/kontakt'               target=""
+                    >
+                Kontakt redaktionen            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/fyens-dk/kontakt-kundeservice'               target=""
+                    >
+                Kontakt kundeservice            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/produkter'               target=""
+                    >
+                Overblik & priser            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/rettelser'               target=""
+                    >
+                Rettelser            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/artikel/rss-feeds-2021-1-25(2)'               target=""
+                    >
+                RSS-feeds            </a>
+            </div>
+                                               </nav>
+                                <span class="drawer-navigation__title">JFM</span>
+                    <nav class="drawer-navigation__items">
+                                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://jfm.dk/privatlivs-og-cookiepolitik/'               target="_blank"
+                    >
+                Cookies og privatliv            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://jfm.dk/'               target="_blank"
+                    >
+                Om JFM            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/artikel/ophavsret-2020-2-22'               target=""
+                    >
+                Ophavsret            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='http://jfmedier.dk/da/om-os/persondata-henvendelser/'               target="_blank"
+                    >
+                Persondatahenvendelser            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/artikel/presseetiske-regler-for-jysk-fynske-medier'               target=""
+                    >
+                Presseetik            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://publicistisk-regnskab.jfm.dk/'               target="_blank"
+                    >
+                Publicistisk regnskab            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/danmark/udgivererklaering'               target=""
+                    >
+                Udgivererklæring            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://jfm.dk/abonnements-vilkaar/'               target="_blank"
+                    >
+                Vilkår            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <button class="drawer-navigation__link "
+                    >
+                Tjenester                <div class="drawer-navigation__expand-button">
+                    <span class="material-icons-outlined profile-card__profile-icon">
+                        expand_more
+                    </span>
+                </div>
+            </button>
+            <div class="drawer-navigation__children">
+                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://avisendanmark.dk'               target="_blank"
+                    >
+                Avisen Danmark            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/jobbasen'               target="_blank"
+                    >
+                Jobbasen            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/eventinfo'               target="_blank"
+                    >
+                Eventinfo            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://ugeavisen.dk'               target="_blank"
+                    >
+                Ugeavisen            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://deal.dk'               target="_blank"
+                    >
+                Deal.dk            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://sweetdeal.dk'               target="_blank"
+                    >
+                Sweetdeal.dk            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://spot.dk'               target="_blank"
+                    >
+                Spot.dk            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://guloggratis.dk'               target="_blank"
+                    >
+                GulogGratis.dk            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://jobdanmark.dk'               target="_blank"
+                    >
+                JobDanmark            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://skala.fm'               target="_blank"
+                    >
+                skala.fm            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://www.radio4.dk'               target="_blank"
+                    >
+                Radio4            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://ugeavisen.dk/e-profil/'               target="_blank"
+                    >
+                E-profil            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://www.vlr.dk/'               target="_blank"
+                    >
+                VLR            </a>
+            </div>
+                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://www.classicfm.dk/'               target=""
+                    >
+                Classic FM            </a>
+            </div>
+                                </div>
+            </div>
+                                               </nav>
+                    </div>
+    </div>
+        </div>
+    <div class="drawer-shade"></div>
+
+            <!-- User Menu (insert here) -->
+                <div class="drawer" data-drawer="user-navigation">
+            <div class="user-navigation">
+        <button class="btn btn--no-style"
+                data-drawer-close
+                aria-label="Luk">
+            <i class="material-icons-outlined">
+                close
+            </i>
+        </button>
+        <div class="drawer-navigation">
+            <span class="drawer-navigation__title">Min profil</span>
+            <div class="show-if-logged-out">
+                <div class="drawer-navigation__body">
+                    <div class="profile-card">
+                        <div class="profile-card__header">
+                            <span class="material-symbols-outlined profile-card__profile-icon">
+                                account_circle
+                            </span>
+                            <span class="profile-card__title">
+                                Du er ikke logget ind
+                            </span>
+                        </div>
+                        <div class="profile-card__body">
+                                                            <a class="btn btn--primary" data-promo-btn href="https://fyens.dk/abonnement">Køb abonnement</a>
+                                                        <a data-login-button
+                               class="btn btn--primary"
+                               data-inspect="header:login"
+                               href="/log-ind?return_url=https%3A%2F%2Ffyens.dk%2Ffavicon.ico">
+                                Log ind
+                            </a>
+                        </div>
+                    </div>
+                    <nav class="drawer-navigation__items">
+                                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://avisfordele.dk/'               target="_blank"
+                    >
+                Avisfordele            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/eavis'               target=""
+                    >
+                E-avis            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://fyens.dk/fyens-dk/kontakt-kundeservice'               target=""
+                    >
+                Kundeservice            </a>
+            </div>
+                                                </nav>
+                </div>
+            </div>
+            <div class="show-if-logged-in">
+                <div class="drawer-navigation__body">
+                    <div class="profile-card">
+                        <div class="profile-card__header">
+                            <span class="material-symbols-outlined profile-card__profile-icon">
+                                account_circle
+                            </span>
+                            <span class="profile-card__title">
+                                Velkommen! Du er logget ind.
+                            </span>
+                        </div>
+                        <div class="profile-card__body">
+                            <a class="btn btn--primary" href="/selvbetjening">
+                                Selvbetjening
+                            </a>
+                        </div>
+                    </div>
+                    <nav class="drawer-navigation__items">
+                                                        <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='https://avisfordele.dk/'               target="_blank"
+                    >
+                Avisfordele            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/eavis'               target=""
+                    >
+                E-avis            </a>
+            </div>
+                                                            <div class="drawer-navigation__item">
+                    <a class="drawer-navigation__link "
+                    href='/selvbetjening'               target=""
+                    >
+                Selvbetjening            </a>
+            </div>
+                                                    <a data-user-logout
+                           class="drawer-navigation__link"
+                           href="/log-ud?return_url=https%3A%2F%2Ffyens.dk%2F">
+                            Log ud
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    <div class="drawer-shade"></div>
+        </div>
+    </header>
+            
+        <div id="skip-to-content"></div>
+
+            <main class="section">
+        <section class="container">
+            <div class="error-page">
+                <h1 class="error-page__title">Ups!</h1>
+                <div class="error-page__content">
+                    <p class="error-page__paragraph">
+                        Du er kommet til et sted, der ikke findes på fyens.dk                    </p>
+                    <p class="error-page__paragraph">
+                        Du kan prøve at søge - eller gå til <a href="/">Forsiden</a>
+                    </p>
+                </div>
+
+                <form action="/soeg" method="get" role="search">
+                    <div class="error-page__search search">
+                        <input
+                                class="search__input" type="search" id="error-search-input" placeholder="Søg"
+                                aria-label="Indtast dit søgeord" value="" data-tealium-search-input
+                        />
+                        <button class="search__button" aria-label="Søg">
+                            <span class="icon icon-search"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+        <div class="modal" id="login-modal">
+        <div
+        class="login-box"
+        data-loginform
+                    data-show-close-btn
+                data-return-url=""
+        data-notice=""
+        data-buyflow-url="https://fyens.dk/abonnement"
+        data-forgot-password-url="/nytkodeord"
+    >
+    </div>
+    </div>
+            <footer class="footer" data-personal-teaser-fixpoint>
+        <div class="footer__content">
+            <section class="footer__brand">
+                <a
+                   class="footer__brand-link"
+                   href="/"
+                   aria-label="fyens.dk"
+                >
+                    <picture class="logo" aria-hidden="true">
+                    </picture>
+                </a>
+                <div class="footer__pressboard">
+                    <img
+                        src="/assets/1772528852/kodus/jfm-site/images/pressenaevnet-logo.svg"
+                        width="125"
+                        height="36"
+                        alt="Vi tager ansvar for indholdet og er tilmeldt pressenævnet"
+                    />
+                </div>
+            </section>
+                            <nav class="footer__navigation">
+                                            <h4 class="footer__navigation-title">
+                            Fyens Stiftstidende                        </h4>
+                                        <ul class="footer__navigation-list">
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/arkiv"
+                                   target="">
+                                    Arkiv                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/detsker"
+                                   target="">
+                                    Det sker                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/kontakt"
+                                   target="">
+                                    Kontakt redaktionen                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="https://fyens.dk/fyens-dk/kontakt-kundeservice"
+                                   target="">
+                                    Kontakt kundeservice                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/produkter"
+                                   target="">
+                                    Overblik & priser                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/nyhedsbrev"
+                                   target="">
+                                    Nyhedsbrev                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/rettelser"
+                                   target="">
+                                    Rettelser                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/artikel/rss-feeds-2021-1-25(2)"
+                                   target="">
+                                    RSS-feeds                                </a>
+                            </li>
+                                            </ul>
+                </nav>
+                            <nav class="footer__navigation">
+                                            <h4 class="footer__navigation-title">
+                            For annoncører                        </h4>
+                                        <ul class="footer__navigation-list">
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="https://business.jfm.dk/nyhedsmedier/aviser-og-nyhedssites/fyens-stiftstidende/"
+                                   target="_blank">
+                                    Køb annoncering                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="https://business.jfm.dk/native/native/"
+                                   target="_blank">
+                                    Køb native artikel                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/annoncebygger"
+                                   target="">
+                                    Bestil dødsannonce                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/annoncoerbetaltindhold"
+                                   target="">
+                                    Se sponsoreret indhold                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/artikel/prisliste-for-redaktionelt-materiale-fra-jysk-fynske-medier-2018-12-27(6)"
+                                   target="">
+                                    Prisliste for indhold                                </a>
+                            </li>
+                                            </ul>
+                </nav>
+                            <nav class="footer__navigation">
+                                            <h4 class="footer__navigation-title">
+                            JFM                        </h4>
+                                        <ul class="footer__navigation-list">
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="https://jfm.dk/privatlivs-og-cookiepolitik/"
+                                   target="_blank">
+                                    Cookies og privatliv                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="https://jfm.dk/"
+                                   target="_blank">
+                                    Om JFM                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/artikel/ophavsret-2020-2-22"
+                                   target="">
+                                    Ophavsret                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="http://jfmedier.dk/da/om-os/persondata-henvendelser/"
+                                   target="_blank">
+                                    Persondatahenvendelser                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/artikel/presseetiske-regler-for-jysk-fynske-medier"
+                                   target="">
+                                    Presseetik                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="https://publicistisk-regnskab.jfm.dk/"
+                                   target="_blank">
+                                    Publicistisk regnskab                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/danmark/udgivererklaering"
+                                   target="">
+                                    Udgivererklæring                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="https://jfm.dk/abonnements-vilkaar/"
+                                   target="_blank">
+                                    Vilkår                                </a>
+                            </li>
+                                                    <li>
+                                <a class="footer__navigation-link"
+                                   href="/esbjerg/tilgaengelighedserklaering-for-jfm-s-nyhedssider"
+                                   target="">
+                                    Tilgængelighedserklæring                                </a>
+                            </li>
+                                            </ul>
+                </nav>
+                    </div>
+        <section class="footer__brand">
+            <a class="footer__brand-link"
+               href="/"
+               aria-label="fyens.dk"
+               data-js-logger-trigger
+            >
+                <picture class="logo" aria-hidden="true">
+                </picture>
+            </a>
+
+        </section>
+        <div class="footer__bottom">
+            <a class="footer__copyrights" target="_blank" href="https://fyens.dk/danmark/ophavsret">
+                Ophavsret 2026            </a>
+            <div class="footer__links">
+                <a href="javascript:Didomi.preferences.show()">Cookie indstillinger</a>
+                <a href="https://publicistisk-regnskab.jfm.dk/">Publicistisk regnskab</a>
+            </div>
+        </div>
+    </footer>
+        </section>
+    
+<script type="text/javascript" src="/assets/1772528852/kodus/jfm-site/js/app/notFoundPage.js"></script>
+<script type="text/javascript">
+    function findAdContainers(position, callback) {
+        const positionName = position.dataset.adPositionName;
+    
+        // Select ad containers based on the provided position name
+        let adContainers = document.querySelectorAll('[data-ad-container="' + positionName + '"]');
+    
+        // If no ad containers are found, try to find the closest ad container from a given position element
+        if (adContainers.length === 0) {
+            const closestAdContainer = position.closest('[data-ad-container]');
+            adContainers = closestAdContainer ? [closestAdContainer] : [];
+        }
+    
+        if (adContainers.length === 0) return;
+    
+        adContainers.forEach(callback);
+    }
+    
+    async function checkEnabledAdPositions() {        
+        if (!window.enabledAdPositions) return;
+    
+        const adPositions = document.querySelectorAll('[data-ad-position-name]');
+        
+        adPositions.forEach((position) => {
+            const positionName = position.getAttribute('data-ad-position-name');
+    
+            const isEnabledPosition = window.enabledAdPositions?.includes(positionName);
+    
+            if (! isEnabledPosition) {
+                findAdContainers(position, (adContainer) => {
+                    adContainer.style.display = 'none';
+                });
+            }
+        });
+    }
+</script></body>
+</html>

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
-import { getNewsletterEmails, deleteNewsletterEmail, getUserConfig, setUserConfig, getFirstActiveUserId } from "@/lib/db";
+import {
+  getNewsletterEmails, deleteNewsletterEmail, getUserConfig, setUserConfig,
+  getFirstActiveUserId, getNewsletterEmailBody, getDigestRuns, getDigestRunHtml,
+  getNewsletterSubscriptions,
+} from "@/lib/db";
 
 async function resolveUserId(): Promise<number | null> {
   const sessionUserId = await getCurrentUserId();
@@ -8,14 +12,45 @@ async function resolveUserId(): Promise<number | null> {
   return getFirstActiveUserId();
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const userId = await resolveUserId();
   if (!userId) return NextResponse.json({ error: "No user" }, { status: 404 });
 
+  const view = request.nextUrl.searchParams.get("view");
+  const id = request.nextUrl.searchParams.get("id");
+
+  // Single email body
+  if (view === "email" && id) {
+    const body = getNewsletterEmailBody(userId, parseInt(id, 10));
+    if (!body) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(body);
+  }
+
+  // Digest runs list
+  if (view === "digests") {
+    const runs = getDigestRuns(userId);
+    return NextResponse.json({ runs });
+  }
+
+  // Single digest HTML
+  if (view === "digest" && id) {
+    const html = getDigestRunHtml(userId, parseInt(id, 10));
+    if (html === null) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ html });
+  }
+
+  // Subscriptions list
+  if (view === "subscriptions") {
+    const subs = getNewsletterSubscriptions(userId);
+    return NextResponse.json({ subscriptions: subs });
+  }
+
+  // Default: dashboard data
   const emails = getNewsletterEmails(userId, 100);
   const recipientsJson = getUserConfig(userId, "newsletter_recipients") || "[]";
   const schedulesJson = getUserConfig(userId, "newsletter_schedules") || "[]";
   const systemPrompt = getUserConfig(userId, "newsletter_system_prompt") || "";
+  const digestPrompt = getUserConfig(userId, "newsletter_digest_prompt") || "";
 
   let recipients: string[] = [];
   let schedules: any[] = [];
@@ -28,7 +63,7 @@ export async function GET() {
     if (oldEmail) recipients = [oldEmail];
   }
 
-  return NextResponse.json({ emails, recipients, schedules, systemPrompt });
+  return NextResponse.json({ emails, recipients, schedules, systemPrompt, digestPrompt });
 }
 
 export async function POST(request: NextRequest) {
@@ -47,6 +82,10 @@ export async function POST(request: NextRequest) {
 
   if (body.systemPrompt !== undefined) {
     setUserConfig(userId, "newsletter_system_prompt", body.systemPrompt);
+  }
+
+  if (body.digestPrompt !== undefined) {
+    setUserConfig(userId, "newsletter_digest_prompt", body.digestPrompt);
   }
 
   return NextResponse.json({ ok: true });
