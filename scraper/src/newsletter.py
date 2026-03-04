@@ -328,6 +328,18 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
         return "Newsletter Digest", fallback
 
 
+def _clean_sender(from_address: str, fallback: str = "") -> str:
+    """Extract a readable newsletter name from a bounce email address."""
+    import re as _re
+    domain = from_address.rsplit("@", 1)[-1] if "@" in from_address else from_address
+    generic = {"ghost.io", "substack.com", "mcsv.net", "mcdlv.net", "mailchimp.com"}
+    if any(domain == g or domain.endswith("." + g) for g in generic):
+        return fallback or domain
+    clean = _re.sub(r'^(ghost|notify|bounces?|mg-?\w*|m|em\d*\.mail|mail\d*\.suw\d*)\.', '', domain, flags=_re.IGNORECASE)
+    name = clean.split(".")[0]
+    return name[0].upper() + name[1:] if name else domain
+
+
 def _build_digest_html(config: Config, digest_content: str,
                        email_count: int, digest_date: str,
                        emails: list[dict] | None = None) -> str:
@@ -337,6 +349,7 @@ def _build_digest_html(config: Config, digest_content: str,
 
     template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
     env = Environment(loader=FileSystemLoader(template_dir))
+    env.filters["clean_sender"] = lambda addr, fb="": _clean_sender(addr, fb)
     template = env.get_template("newsletter_digest.html")
 
     return template.render(

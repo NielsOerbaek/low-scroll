@@ -243,16 +243,13 @@ export function NewsletterDashboard() {
 
   const realSubscriptions = subscriptions.filter((s) => !isBouncyAddress(s.from_address));
 
-  function senderName(sub: Subscription): string {
-    const domain = sub.from_address.split("@").pop() || "";
-    // Known generic ESP domains — can't determine newsletter name from these
+  function cleanSenderName(fromAddress: string, fallback?: string | null): string {
+    const domain = fromAddress.split("@").pop() || "";
     const genericESPs = ["ghost.io", "substack.com", "mcsv.net", "mcdlv.net", "mailchimp.com"];
     if (genericESPs.some((esp) => domain === esp || domain.endsWith("." + esp))) {
-      return sub.latest_subject || domain;
+      return fallback || domain;
     }
-    // Strip ESP subdomains to get the actual newsletter domain
     const clean = domain.replace(/^(ghost|notify|bounces?|mg-?\w*|m|em\d*\.mail|mail\d*\.suw\d*)\./i, "");
-    // Prettify: "platformer.news" → "Platformer"
     const name = clean.split(".")[0];
     return name.charAt(0).toUpperCase() + name.slice(1);
   }
@@ -469,7 +466,7 @@ export function NewsletterDashboard() {
                 <Card key={sub.from_address} className="cursor-pointer hover:border-primary/50 transition-colors"
                       onClick={() => toggleEmailBody(sub.latest_email_id)}>
                   <CardContent className="py-3 px-4">
-                    <p className="text-sm font-medium truncate">{senderName(sub)}</p>
+                    <p className="text-sm font-medium truncate">{cleanSenderName(sub.from_address, sub.latest_subject)}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-muted-foreground">
                         {sub.email_count} e-mail{sub.email_count !== 1 ? "s" : ""}
@@ -536,7 +533,7 @@ export function NewsletterDashboard() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{email.subject}</p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {email.from_address}
+                            {cleanSenderName(email.from_address, email.subject)}
                           </p>
                         </div>
                         <Button

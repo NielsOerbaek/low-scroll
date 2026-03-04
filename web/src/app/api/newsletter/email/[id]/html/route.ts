@@ -12,6 +12,17 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+function cleanSender(fromAddress: string, fallback: string = ""): string {
+  const domain = fromAddress.includes("@") ? fromAddress.split("@").pop()! : fromAddress;
+  const generic = ["ghost.io", "substack.com", "mcsv.net", "mcdlv.net", "mailchimp.com"];
+  if (generic.some((g) => domain === g || domain.endsWith("." + g))) {
+    return fallback || domain;
+  }
+  const clean = domain.replace(/^(ghost|notify|bounces?|mg-?\w*|m|em\d*\.mail|mail\d*\.suw\d*)\./i, "");
+  const name = clean.split(".")[0];
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "Z");
   return d.toLocaleDateString("da-DK", {
@@ -40,7 +51,7 @@ export async function GET(
   }
 
   const subject = escapeHtml(body.subject || "(no subject)");
-  const from = escapeHtml(body.from_address || "");
+  const from = escapeHtml(cleanSender(body.from_address || "", body.subject || ""));
   const date = body.received_at ? formatDate(body.received_at) : "";
 
   const header = `<div style="font-family:'Courier New',Courier,monospace;background:#1A2C4E;color:#fff;padding:12px 20px;font-size:13px;line-height:1.5;">
