@@ -199,16 +199,16 @@ export function NewsletterDashboard() {
   function statusBadge(email: NewsletterEmail) {
     if (email.is_confirmation) {
       return email.confirmation_clicked
-        ? <Badge variant="secondary" className="text-xs">Bekræftet</Badge>
+        ? <Badge variant="secondary" className="text-xs">Bekræftelse klikket</Badge>
         : <Badge className="bg-yellow-100 text-yellow-800 text-xs">Afventer bekræftelse</Badge>;
     }
     if (email.digest_date) {
-      return <Badge className="bg-green-100 text-green-800 text-xs">Fordøjet {email.digest_date}</Badge>;
+      return <Badge className="bg-green-100 text-green-800 text-xs">I oversigt {email.digest_date}</Badge>;
     }
     if (email.processed) {
-      return <Badge className="bg-blue-100 text-blue-800 text-xs">Behandlet</Badge>;
+      return <Badge className="bg-blue-100 text-blue-800 text-xs">Venter på næste oversigt</Badge>;
     }
-    return <Badge variant="secondary" className="text-xs">Afventer</Badge>;
+    return <Badge variant="secondary" className="text-xs">Ny</Badge>;
   }
 
   function formatDate(dateStr: string) {
@@ -237,19 +237,55 @@ export function NewsletterDashboard() {
   return (
     <div className="max-w-[1600px] mx-auto space-y-8">
       {/* ── Explainer ─────────────────────────────────────────── */}
-      <div className="space-y-4 max-w-3xl mx-auto text-center">
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground font-mono">
-          <span className="px-2 py-1 rounded border bg-background">Nyhedsbreve</span>
-          <span>&rarr;</span>
-          <span className="px-2 py-1 rounded border bg-background">Indbakke</span>
-          <span>&rarr;</span>
-          <span className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">Opsummering (AI)</span>
-          <span>&rarr;</span>
-          <span className="px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">Oversigt (AI)</span>
-          <span>&rarr;</span>
-          <span className="px-2 py-1 rounded border bg-background">Modtagere</span>
-        </div>
-        <p className="text-sm text-muted-foreground">
+      <div className="space-y-4 max-w-4xl mx-auto text-center">
+        {(() => {
+          const rows = 5;
+          const rowH = 26;
+          const gap = 4;
+          const totalH = rows * rowH + (rows - 1) * gap;
+          const midY = totalH / 2;
+          const positions = (n: number) => {
+            const h = n * rowH + (n - 1) * gap;
+            const offset = (totalH - h) / 2;
+            return Array.from({ length: n }, (_, i) => offset + i * (rowH + gap) + rowH / 2);
+          };
+          const Connector = ({ left, right }: { left: number; right: number }) => (
+            <svg width="36" height={totalH} className="shrink-0" style={{ display: "block" }}>
+              {positions(left).map((y1, i) =>
+                positions(right).map((y2, j) => (
+                  <line key={`${i}-${j}`} x1={0} y1={y1} x2={30} y2={y2}
+                        stroke="currentColor" strokeWidth={1} opacity={0.3} />
+                ))
+              )}
+              {positions(right).map((y, i) => (
+                <polygon key={i} points={`${30},${y - 3} ${36},${y} ${30},${y + 3}`}
+                         fill="currentColor" opacity={0.4} />
+              ))}
+            </svg>
+          );
+          const Col = ({ n, labels, className }: { n: number; labels: string[]; className?: string }) => (
+            <div className="flex flex-col items-center shrink-0" style={{ gap, height: totalH, justifyContent: "center" }}>
+              {labels.map((label, i) => (
+                <span key={i} className={`px-2 rounded border text-xs whitespace-nowrap ${className || "bg-background"}`}
+                      style={{ height: rowH, lineHeight: `${rowH}px` }}>{label}</span>
+              ))}
+            </div>
+          );
+          return (
+            <div className="flex items-center justify-center gap-0 text-muted-foreground font-mono overflow-x-auto">
+              <Col n={5} labels={Array(5).fill("Nyhedsbrev")} />
+              <Connector left={5} right={1} />
+              <Col n={1} labels={["Indbakke"]} className="bg-background font-semibold text-foreground border-2" />
+              <Connector left={1} right={5} />
+              <Col n={5} labels={Array(5).fill("Opsummering")} className="border-blue-200 bg-blue-50 text-blue-700" />
+              <Connector left={5} right={1} />
+              <Col n={1} labels={["Oversigt"]} className="border-2 border-blue-300 bg-blue-50 text-blue-700 font-semibold" />
+              <Connector left={1} right={3} />
+              <Col n={3} labels={Array(3).fill("Modtager")} />
+            </div>
+          );
+        })()}
+        <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
           Tilmeld dig nyhedsbreve med en vilkårlig adresse på <code className="px-1 py-0.5 bg-muted rounded text-xs">@news.raakode.dk</code>.
           Hvert nyhedsbrev opsummeres enkeltvis med <strong>opsummeringsprompten</strong>, derefter samles alle opsummeringer
           til en tematisk oversigt med <strong>oversigt-prompten</strong> og sendes til dine modtagere efter tidsplanen.

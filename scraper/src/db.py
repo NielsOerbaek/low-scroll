@@ -675,6 +675,20 @@ class Database:
         )
         self.conn.commit()
 
+    def get_unsummarized_emails(self, user_id: int) -> list[dict]:
+        # Ensure summary column exists
+        try:
+            self.execute("ALTER TABLE newsletter_emails ADD COLUMN summary TEXT")
+        except Exception:
+            pass
+        rows = self.execute(
+            """SELECT * FROM newsletter_emails
+               WHERE user_id=? AND processed=1 AND is_confirmation=0 AND summary IS NULL
+               ORDER BY received_at ASC""",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def save_email_summary(self, email_id: int, summary: str):
         try:
             self.execute("ALTER TABLE newsletter_emails ADD COLUMN summary TEXT")

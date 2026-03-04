@@ -13,7 +13,7 @@ from src.instagram import InstagramClient, SessionExpiredError
 from src.downloader import MediaDownloader
 from src.scrape import Scraper
 from src.digest import DigestBuilder
-from src.newsletter import classify_emails, click_confirmations, build_and_send_digest, get_schedules
+from src.newsletter import classify_emails, click_confirmations, summarize_new_emails, build_and_send_digest, get_schedules
 
 logging.basicConfig(
     level=logging.INFO,
@@ -578,6 +578,7 @@ def check_newsletter_processing():
             try:
                 classify_emails(user_id)
                 click_confirmations(user_id)
+                summarize_new_emails(user_id)
             except Exception as e:
                 logger.error(f"Newsletter processing error for user {user_id}: {e}")
     finally:

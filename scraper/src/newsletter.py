@@ -50,7 +50,7 @@ def _classify_single_email(db: Database, client: Anthropic, email: dict):
     )
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5-latest",
         max_tokens=10,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -63,6 +63,25 @@ def _classify_single_email(db: Database, client: Anthropic, email: dict):
     else:
         logger.info(f"Email {email['id']} classified as NEWSLETTER: {email['subject']}")
         db.mark_email_processed(email["id"])
+
+
+def summarize_new_emails(user_id: int):
+    """Summarize processed newsletter emails that don't have a summary yet."""
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    try:
+        unsummarized = db.get_unsummarized_emails(user_id)
+        if not unsummarized:
+            return
+
+        logger.info(f"Summarizing {len(unsummarized)} newsletter emails for user {user_id}")
+        client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        system_prompt = db.get_user_config(user_id, "newsletter_system_prompt") or ""
+        _summarize_newsletters(client, unsummarized, system_prompt, db=db)
+    finally:
+        db.close()
 
 
 def click_confirmations(user_id: int):
@@ -104,7 +123,7 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
     )
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5-latest",
         max_tokens=500,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -126,7 +145,7 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
         # Ask Claude to verify the response page
         page_text = BeautifulSoup(resp.text[:5000], "lxml").get_text(separator=" ", strip=True)[:2000]
         verify = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-latest",
             max_tokens=50,
             messages=[{"role": "user", "content": (
                 f"Did this newsletter subscription confirmation succeed? "
@@ -217,7 +236,7 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
 
         try:
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-opus-4-6-latest",
                 max_tokens=300,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -274,7 +293,7 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-opus-4-6-latest",
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
