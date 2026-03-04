@@ -186,7 +186,8 @@ def build_and_send_digest(user_id: int):
             system_prompt = db.get_user_config(user_id, "newsletter_system_prompt") or ""
             digest_prompt = db.get_user_config(user_id, "newsletter_digest_prompt") or ""
             summaries = _summarize_newsletters(client, emails, system_prompt, db=db)
-            digest_title, digest_content = _structure_digest(client, summaries, digest_prompt)
+            recent_digests = db.get_recent_digest_html(user_id, limit=3)
+            digest_title, digest_content = _structure_digest(client, summaries, digest_prompt, recent_digests)
             html = _build_digest_html(config, digest_content, len(emails), today)
             db.save_digest_html(run_id, html)
             _send_digest_email(config, db, user_id, html, emails, digest_title)
@@ -256,7 +257,8 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
     return summaries
 
 
-def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: str = "") -> tuple[str, str]:
+def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: str = "",
+                      recent_digests: list[dict] | None = None) -> tuple[str, str]:
     """Use Claude to structure individual summaries into a themed digest. Returns (title, HTML)."""
     summaries_text = ""
     for s in summaries:
@@ -277,7 +279,9 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
         "3. Then write the full briefing as flowing prose organized by theme. Group related stories, "
         "combine overlapping coverage from different sources, and reference which newsletter(s) "
         "reported each story. Put the most important stories first.\n"
-        "4. The tone should be informative and concise — like a morning briefing for a busy reader.\n\n"
+        "4. The tone should be informative and concise — like a morning briefing for a busy reader.\n"
+        "5. If a story relates to something covered in a previous digest, briefly note the connection "
+        "(e.g. 'following up on...', 'as previously reported...').\n\n"
         "Output format:\n"
         "Wrap the email subject line in <title>...</title> tags.\n"
         "Then write the digest as simple HTML suitable for embedding in an email. "
@@ -287,12 +291,23 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
     )
     system = digest_prompt.strip() if digest_prompt.strip() else default_system
 
+    # Build context from recent digests
+    context = ""
+    if recent_digests:
+        context = "=== PREVIOUS DIGESTS (for context, to reference ongoing stories) ===\n\n"
+        for d in reversed(recent_digests):  # oldest first
+            # Extract text content from HTML to keep context lean
+            digest_text = BeautifulSoup(d["digest_html"] or "", "lxml").get_text(separator="\n", strip=True)
+            # Truncate each digest to keep context manageable
+            context += f"--- Digest from {d['digest_date']} ---\n{digest_text[:2000]}\n\n"
+        context += "=== TODAY'S NEWSLETTERS ===\n\n"
+
     try:
         response = client.messages.create(
             model="claude-opus-4-6",
             max_tokens=4000,
             system=system,
-            messages=[{"role": "user", "content": summaries_text}],
+            messages=[{"role": "user", "content": context + summaries_text}],
         )
         text = response.content[0].text.strip()
         # Extract title from <title>...</title> tags

@@ -723,6 +723,16 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_recent_digest_html(self, user_id: int, limit: int = 3) -> list[dict]:
+        """Get recent successful digest runs with their HTML content."""
+        rows = self.execute(
+            """SELECT digest_date, digest_html FROM newsletter_digest_runs
+               WHERE user_id=? AND status='success' AND digest_html IS NOT NULL
+               ORDER BY digest_date DESC LIMIT ?""",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def get_last_newsletter_digest_date(self, user_id: int) -> str | None:
         row = self.execute(
             """SELECT digest_date FROM newsletter_digest_runs
