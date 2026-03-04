@@ -277,9 +277,9 @@ export function NewsletterDashboard() {
   return (
     <div className="max-w-[1600px] mx-auto space-y-8">
       {/* ── Explainer ─────────────────────────────────────────── */}
-      <div className="space-y-4 max-w-4xl mx-auto text-center">
+      <div className="flex flex-col md:flex-row items-center gap-6 max-w-5xl mx-auto">
         {/* Network diagram — hidden on mobile */}
-        <div className="hidden md:block overflow-hidden">{(() => {
+        <div className="hidden md:block overflow-hidden shrink-0">{(() => {
           const rows = 5;
           const rowH = 26;
           const gap = 4;
@@ -326,7 +326,7 @@ export function NewsletterDashboard() {
             </div>
           );
         })()}</div>
-        <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+        <p className="text-sm text-muted-foreground md:text-left text-center">
           Tilmeld dig nyhedsbreve med <code
             className="px-1 py-0.5 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80 transition-colors"
             title="Klik for at kopiere"
