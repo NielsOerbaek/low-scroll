@@ -8,6 +8,21 @@ async function resolveUserId(): Promise<number | null> {
   return getFirstActiveUserId();
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + "Z");
+  return d.toLocaleDateString("da-DK", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -24,7 +39,26 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
-  return new NextResponse(body.body_html, {
+  const subject = escapeHtml(body.subject || "(no subject)");
+  const from = escapeHtml(body.from_address || "");
+  const date = body.received_at ? formatDate(body.received_at) : "";
+
+  const header = `<div style="font-family:'Courier New',Courier,monospace;background:#1A2C4E;color:#fff;padding:12px 20px;font-size:13px;line-height:1.5;">
+  <div style="font-weight:700;font-size:15px;">${subject}</div>
+  <div style="opacity:0.7;font-size:11px;margin-top:2px;">${from}${date ? ` &middot; ${date}` : ""}</div>
+</div>`;
+
+  // Inject header after <body> tag, or prepend if no <body>
+  let html = body.body_html;
+  const bodyMatch = html.match(/<body[^>]*>/i);
+  if (bodyMatch) {
+    const idx = bodyMatch.index! + bodyMatch[0].length;
+    html = html.slice(0, idx) + header + html.slice(idx);
+  } else {
+    html = header + html;
+  }
+
+  return new NextResponse(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Content-Security-Policy": "script-src 'none'",

@@ -35,6 +35,7 @@ interface Subscription {
   email_count: number;
   last_received: string;
   latest_email_id: number;
+  latest_subject: string | null;
 }
 
 interface DigestRun {
@@ -74,6 +75,7 @@ export function NewsletterDashboard() {
   const [digestHtml, setDigestHtml] = useState<string | null>(null);
   const [loadingDigest, setLoadingDigest] = useState(false);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [inboxFilter, setInboxFilter] = useState<"newsletters" | "confirmations" | "all">("newsletters");
 
   useEffect(() => {
     fetch("/api/newsletter")
@@ -228,6 +230,31 @@ export function NewsletterDashboard() {
     if (days < 30) return `${days} dag${days !== 1 ? "e" : ""} siden`;
     const months = Math.floor(days / 30);
     return `${months} måned${months !== 1 ? "er" : ""} siden`;
+  }
+
+  const filteredEmails = emails.filter((e) => {
+    if (inboxFilter === "newsletters") return !e.is_confirmation;
+    if (inboxFilter === "confirmations") return e.is_confirmation;
+    return true;
+  });
+
+  const isBouncyAddress = (addr: string) =>
+    /^bounce[+@]|^(no-?reply|mailer-daemon|postmaster)@/i.test(addr);
+
+  const realSubscriptions = subscriptions.filter((s) => !isBouncyAddress(s.from_address));
+
+  function senderName(sub: Subscription): string {
+    const domain = sub.from_address.split("@").pop() || "";
+    // Known generic ESP domains — can't determine newsletter name from these
+    const genericESPs = ["ghost.io", "substack.com", "mcsv.net", "mcdlv.net", "mailchimp.com"];
+    if (genericESPs.some((esp) => domain === esp || domain.endsWith("." + esp))) {
+      return sub.latest_subject || domain;
+    }
+    // Strip ESP subdomains to get the actual newsletter domain
+    const clean = domain.replace(/^(ghost|notify|bounces?|mg-?\w*|m|em\d*\.mail|mail\d*\.suw\d*)\./i, "");
+    // Prettify: "platformer.news" → "Platformer"
+    const name = clean.split(".")[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
   }
 
   if (loading) return <p>Indlæser...</p>;
@@ -417,22 +444,22 @@ export function NewsletterDashboard() {
       </div>
 
       {/* ── Subscriptions ────────────────────────────────────── */}
-      {subscriptions.length > 0 && (
+      {realSubscriptions.length > 0 && (
         <>
           <Separator />
           <div className="space-y-3">
             <div>
               <h2 className="text-lg font-semibold">Abonnementer</h2>
               <p className="text-sm text-muted-foreground">
-                {subscriptions.length} nyhedsbreve du modtager. Klik på en for at se seneste e-mail (find afmeldingslink der).
+                {realSubscriptions.length} nyhedsbreve du modtager. Klik på en for at se seneste e-mail (find afmeldingslink der).
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {subscriptions.map((sub) => (
+              {realSubscriptions.map((sub) => (
                 <Card key={sub.from_address} className="cursor-pointer hover:border-primary/50 transition-colors"
                       onClick={() => toggleEmailBody(sub.latest_email_id)}>
                   <CardContent className="py-3 px-4">
-                    <p className="text-sm font-medium truncate">{sub.from_address}</p>
+                    <p className="text-sm font-medium truncate">{senderName(sub)}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-muted-foreground">
                         {sub.email_count} e-mail{sub.email_count !== 1 ? "s" : ""}
@@ -442,9 +469,6 @@ export function NewsletterDashboard() {
                         Senest: {timeAgo(sub.last_received)}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 truncate">
-                      til: {sub.to_address}
-                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -461,22 +485,37 @@ export function NewsletterDashboard() {
         <div className="space-y-3">
           <div>
             <h2 className="text-lg font-semibold">Indbakke</h2>
-            <p className="text-sm text-muted-foreground">
-              {emails.length} modtagne nyhedsbreve
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              {(["newsletters", "confirmations", "all"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setInboxFilter(f)}
+                  className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                    inboxFilter === f
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-input hover:bg-muted"
+                  }`}
+                >
+                  {f === "newsletters" ? "Nyhedsbreve" : f === "confirmations" ? "Bekræftelser" : "Alle"}
+                </button>
+              ))}
+              <span className="text-xs text-muted-foreground ml-1">
+                {filteredEmails.length} af {emails.length}
+              </span>
+            </div>
           </div>
 
-          {emails.length === 0 ? (
+          {filteredEmails.length === 0 ? (
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Ingen nyhedsbreve endnu.
+                  {inboxFilter === "all" ? "Ingen e-mails endnu." : inboxFilter === "confirmations" ? "Ingen bekræftelser." : "Ingen nyhedsbreve endnu."}
                 </p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
-              {emails.map((email) => (
+              {filteredEmails.map((email) => (
                 <Card key={email.id}>
                   <CardContent className="py-3 px-4">
                     <div

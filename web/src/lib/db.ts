@@ -323,15 +323,15 @@ export function deleteNewsletterEmail(userId: number, emailId: number): void {
   db.close();
 }
 
-export function getNewsletterEmailBody(userId: number, emailId: number): { body_html: string | null; body_text: string | null; summary: string | null } | null {
+export function getNewsletterEmailBody(userId: number, emailId: number): { body_html: string | null; body_text: string | null; summary: string | null; subject: string | null; from_address: string | null; received_at: string | null } | null {
   // Ensure summary column exists
   const wdb = getWritableDb();
   try { wdb.prepare("ALTER TABLE newsletter_emails ADD COLUMN summary TEXT").run(); } catch {}
   wdb.close();
 
   const row = getDb()
-    .prepare("SELECT body_html, body_text, summary FROM newsletter_emails WHERE id = ? AND user_id = ?")
-    .get(emailId, userId) as { body_html: string | null; body_text: string | null; summary: string | null } | undefined;
+    .prepare("SELECT body_html, body_text, summary, subject, from_address, received_at FROM newsletter_emails WHERE id = ? AND user_id = ?")
+    .get(emailId, userId) as { body_html: string | null; body_text: string | null; summary: string | null; subject: string | null; from_address: string | null; received_at: string | null } | undefined;
   return row ?? null;
 }
 
@@ -377,6 +377,7 @@ export interface NewsletterSubscription {
   email_count: number;
   last_received: string;
   latest_email_id: number;
+  latest_subject: string | null;
 }
 
 export function getNewsletterSubscriptions(userId: number): NewsletterSubscription[] {
@@ -386,13 +387,16 @@ export function getNewsletterSubscriptions(userId: number): NewsletterSubscripti
               MAX(received_at) as last_received,
               (SELECT id FROM newsletter_emails ne2
                WHERE ne2.user_id = ? AND ne2.from_address = ne.from_address
-               ORDER BY received_at DESC LIMIT 1) as latest_email_id
+               ORDER BY received_at DESC LIMIT 1) as latest_email_id,
+              (SELECT subject FROM newsletter_emails ne3
+               WHERE ne3.user_id = ? AND ne3.from_address = ne.from_address
+               ORDER BY received_at DESC LIMIT 1) as latest_subject
        FROM newsletter_emails ne
        WHERE user_id = ? AND is_confirmation = 0
        GROUP BY from_address
        ORDER BY last_received DESC`
     )
-    .all(userId, userId) as NewsletterSubscription[];
+    .all(userId, userId, userId) as NewsletterSubscription[];
 }
 
 // ── Unified Feed ──────────────────────────────────────────────
