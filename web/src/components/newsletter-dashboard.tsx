@@ -314,7 +314,7 @@ export function NewsletterDashboard() {
           );
         })()}</div>
         <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-          Tilmeld dig nyhedsbreve med en vilkårlig adresse på <code className="px-1 py-0.5 bg-muted rounded text-xs">@news.raakode.dk</code>.
+          Tilmeld dig nyhedsbreve med <code className="px-1 py-0.5 bg-muted rounded text-xs">news@news.raakode.dk</code>.
           Hvert nyhedsbrev opsummeres enkeltvis med <strong>opsummeringsprompten</strong>, derefter samles alle opsummeringer
           til en tematisk oversigt med <strong>oversigt-prompten</strong> og sendes til dine modtagere efter tidsplanen.
         </p>
