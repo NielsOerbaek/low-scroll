@@ -330,8 +330,8 @@ export function NewsletterDashboard() {
           Tilmeld dig nyhedsbreve med <code
             className="px-1 py-0.5 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80 transition-colors"
             title="Klik for at kopiere"
-            onClick={() => { navigator.clipboard.writeText("news@news.raakode.dk"); }}
-          >news@news.raakode.dk</code>.
+            onClick={() => { navigator.clipboard.writeText("henrik@news.raakode.dk"); }}
+          >henrik@news.raakode.dk</code>.
           Hvert nyhedsbrev opsummeres enkeltvis med <strong>opsummeringsprompten</strong>, derefter samles alle opsummeringer
           til en tematisk oversigt med <strong>oversigt-prompten</strong> og sendes til dine modtagere efter tidsplanen.
         </p>
