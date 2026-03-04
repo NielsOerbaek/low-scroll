@@ -381,7 +381,7 @@ def _send_digest_email(config: Config, db: Database, user_id: int,
         })
 
     resend.Emails.send({
-        "from": "newsletters@raakode.dk",
+        "from": "FøhnsStiftstidende <newsletters@raakode.dk>",
         "to": recipients,
         "subject": subject,
         "html": html,
