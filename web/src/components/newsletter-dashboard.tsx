@@ -50,8 +50,19 @@ interface DigestRun {
   error: string | null;
 }
 
-const DEFAULT_SYSTEM_PROMPT = "Summarize this newsletter email thoroughly. Include all notable stories, data points, and takeaways. Use bullet points and cover both main stories and smaller items. Use plain text, no markdown.";
-const DEFAULT_DIGEST_PROMPT = "Structure this newsletter digest by grouping related stories and themes together. For each theme or story, reference which newsletter(s) it appeared in (by name/sender). If a story appears in multiple newsletters, combine the coverage. Put the most important or widely-covered stories first. Include smaller standalone items at the end.";
+const DEFAULT_SYSTEM_PROMPT = "You summarize newsletter emails. Cover all notable stories, data points, and takeaways. Use bullet points for multiple stories. Include both main stories and smaller items. Use plain text, no markdown. Be thorough but concise.";
+const DEFAULT_DIGEST_PROMPT = `You are writing a daily briefing newsletter. Your output should read like a polished, well-structured newsletter — not a list of summaries.
+
+Structure:
+1. Start with a short bullet-point overview listing each story covered. For each bullet, mention which newsletter(s) covered it in parentheses.
+2. After the bullet list, state how many newsletters this digest covers.
+3. Then write the full briefing as flowing prose organized by theme. Group related stories, combine overlapping coverage from different sources, and reference which newsletter(s) reported each story. Put the most important stories first.
+4. The tone should be informative and concise — like a morning briefing for a busy reader.
+5. If a story relates to something covered in a previous digest, briefly note the connection (e.g. 'following up on...', 'as previously reported...').
+
+Output format:
+Wrap the email subject line in <title>...</title> tags.
+Then write the digest as simple HTML suitable for embedding in an email. Use only basic tags: <h3>, <p>, <ul>, <li>, <strong>, <em>, <br>. Use inline styles sparingly (only font-size and color). Do NOT include <html>, <head>, <body>, or <style> tags.`;
 
 const DAY_LABELS = ["Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"];
 const WEEKDAYS = [1, 2, 3, 4, 5];
@@ -268,7 +279,7 @@ export function NewsletterDashboard() {
       {/* ── Explainer ─────────────────────────────────────────── */}
       <div className="space-y-4 max-w-4xl mx-auto text-center">
         {/* Network diagram — hidden on mobile */}
-        <div className="hidden md:block">{(() => {
+        <div className="hidden md:block overflow-hidden">{(() => {
           const rows = 5;
           const rowH = 26;
           const gap = 4;
@@ -316,7 +327,11 @@ export function NewsletterDashboard() {
           );
         })()}</div>
         <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-          Tilmeld dig nyhedsbreve med <code className="px-1 py-0.5 bg-muted rounded text-xs">news@news.raakode.dk</code>.
+          Tilmeld dig nyhedsbreve med <code
+            className="px-1 py-0.5 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80 transition-colors"
+            title="Klik for at kopiere"
+            onClick={() => { navigator.clipboard.writeText("news@news.raakode.dk"); }}
+          >news@news.raakode.dk</code>.
           Hvert nyhedsbrev opsummeres enkeltvis med <strong>opsummeringsprompten</strong>, derefter samles alle opsummeringer
           til en tematisk oversigt med <strong>oversigt-prompten</strong> og sendes til dine modtagere efter tidsplanen.
         </p>
