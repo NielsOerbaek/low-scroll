@@ -188,10 +188,10 @@ def build_and_send_digest(user_id: int):
             system_prompt = db.get_user_config(user_id, "newsletter_system_prompt") or ""
             digest_prompt = db.get_user_config(user_id, "newsletter_digest_prompt") or ""
             summaries = _summarize_newsletters(client, emails, system_prompt, db=db)
-            digest_content = _structure_digest(client, summaries, digest_prompt)
+            digest_title, digest_content = _structure_digest(client, summaries, digest_prompt)
             html = _build_digest_html(config, digest_content, len(emails), today)
             db.save_digest_html(run_id, html)
-            _send_digest_email(config, db, user_id, html, emails)
+            _send_digest_email(config, db, user_id, html, emails, digest_title)
 
             email_ids = [e["id"] for e in emails]
             db.mark_emails_digested(email_ids, today)
@@ -261,8 +261,8 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
     return summaries
 
 
-def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: str = "") -> str:
-    """Use Claude to structure individual summaries into a themed digest. Returns HTML."""
+def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: str = "") -> tuple[str, str]:
+    """Use Claude to structure individual summaries into a themed digest. Returns (title, HTML)."""
     summaries_text = ""
     for s in summaries:
         summaries_text += (
@@ -273,11 +273,14 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
         )
 
     default_instruction = (
-        "Structure this newsletter digest by grouping related stories and themes together. "
-        "For each theme or story, reference which newsletter(s) it appeared in (by name/sender). "
-        "If a story appears in multiple newsletters, combine the coverage. "
-        "Put the most important or widely-covered stories first. "
-        "Include smaller standalone items at the end."
+        "You are writing a daily briefing newsletter. Your output should read like a polished, "
+        "well-structured newsletter — not a list of summaries.\n\n"
+        "Structure:\n"
+        "1. Start with a short bullet-point overview listing each story covered (one line each).\n"
+        "2. Then write the full briefing as flowing prose organized by theme. Group related stories, "
+        "combine overlapping coverage from different sources, and reference which newsletter(s) "
+        "reported each story. Put the most important stories first.\n"
+        "3. The tone should be informative and concise — like a morning briefing for a busy reader."
     )
     instruction = digest_prompt.strip() if digest_prompt.strip() else default_instruction
 
@@ -285,7 +288,9 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
         f"{instruction}\n\n"
         f"Here are the individual newsletter summaries:\n\n"
         f"{summaries_text}\n\n"
-        f"Output the digest as simple HTML suitable for embedding in an email. "
+        f"Output format:\n"
+        f"First line: TITLE: <a short, compelling email subject line highlighting top stories>\n"
+        f"Then a blank line, followed by the digest as simple HTML suitable for embedding in an email. "
         f"Use only basic tags: <h3>, <p>, <ul>, <li>, <strong>, <em>, <br>. "
         f"Use inline styles sparingly (only font-size and color). "
         f"Do NOT include <html>, <head>, <body>, or <style> tags."
@@ -297,16 +302,22 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.content[0].text.strip()
+        text = response.content[0].text.strip()
+        # Extract title from first line
+        title = None
+        if text.startswith("TITLE:"):
+            first_newline = text.index("\n")
+            title = text[6:first_newline].strip()
+            text = text[first_newline:].strip()
+        return title or "Newsletter Digest", text
     except Exception as e:
         logger.error(f"Failed to structure digest: {e}")
-        # Fallback: render summaries sequentially
         fallback = ""
         for s in summaries:
             fallback += f"<h3>{s['subject']}</h3>"
             fallback += f"<p style='font-size:11px;color:#8e8e8e;'>{s['from']} &middot; {s['received_at']}</p>"
             fallback += f"<p>{s['summary']}</p>"
-        return fallback
+        return "Newsletter Digest", fallback
 
 
 def _build_digest_html(config: Config, digest_content: str,
@@ -345,7 +356,7 @@ def _get_recipients(db: Database, user_id: int) -> list[str]:
 
 
 def _send_digest_email(config: Config, db: Database, user_id: int,
-                       html: str, emails: list[dict]):
+                       html: str, emails: list[dict], subject: str = "Newsletter Digest"):
     """Send the digest email via Resend, with original newsletters attached as HTML."""
     import base64
     import re
@@ -362,7 +373,6 @@ def _send_digest_email(config: Config, db: Database, user_id: int,
         body_html = email.get("body_html") or ""
         if not body_html:
             continue
-        # Build a safe filename from the subject
         safe_subject = re.sub(r'[^\w\s-]', '', email.get("subject", "email")).strip()[:50]
         safe_subject = re.sub(r'\s+', '_', safe_subject)
         attachments.append({
@@ -370,11 +380,10 @@ def _send_digest_email(config: Config, db: Database, user_id: int,
             "content": base64.b64encode(body_html.encode("utf-8")).decode("ascii"),
         })
 
-    email_count = len(emails)
     resend.Emails.send({
         "from": "newsletters@raakode.dk",
         "to": recipients,
-        "subject": f"Newsletter digest: {email_count} email{'s' if email_count != 1 else ''} summarized",
+        "subject": subject,
         "html": html,
         "attachments": attachments,
     })
