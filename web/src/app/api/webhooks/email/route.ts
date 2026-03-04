@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { from, to, subject, body_text, body_html, message_id } = body;
+  const { from, from_name, to, subject, body_text, body_html, message_id } = body;
 
   if (!from || !to) {
     return NextResponse.json(
@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
     to,
     subject || "(no subject)",
     body_text || "",
-    body_html || ""
+    body_html || "",
+    from_name || ""
   );
 
   return NextResponse.json({ ok: true, email_id: emailId });

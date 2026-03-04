@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 interface NewsletterEmail {
   id: number;
   from_address: string;
+  from_name: string;
   to_address: string;
   subject: string;
   received_at: string;
@@ -31,6 +32,7 @@ interface Schedule {
 
 interface Subscription {
   from_address: string;
+  from_name: string;
   to_address: string;
   email_count: number;
   last_received: string;
@@ -243,7 +245,10 @@ export function NewsletterDashboard() {
 
   const realSubscriptions = subscriptions.filter((s) => !isBouncyAddress(s.from_address));
 
-  function cleanSenderName(fromAddress: string, fallback?: string | null): string {
+  function senderDisplayName(fromName: string | undefined | null, fromAddress: string, fallback?: string | null): string {
+    // Prefer the MIME display name (e.g. "Joseph at 404media") when available
+    if (fromName && fromName.trim()) return fromName.trim();
+    // Fallback: derive from domain
     const domain = fromAddress.split("@").pop() || "";
     const genericESPs = ["ghost.io", "substack.com", "mcsv.net", "mcdlv.net", "mailchimp.com"];
     if (genericESPs.some((esp) => domain === esp || domain.endsWith("." + esp))) {
@@ -466,7 +471,7 @@ export function NewsletterDashboard() {
                 <Card key={sub.from_address} className="cursor-pointer hover:border-primary/50 transition-colors"
                       onClick={() => toggleEmailBody(sub.latest_email_id)}>
                   <CardContent className="py-3 px-4">
-                    <p className="text-sm font-medium truncate">{cleanSenderName(sub.from_address, sub.latest_subject)}</p>
+                    <p className="text-sm font-medium truncate">{senderDisplayName(sub.from_name, sub.from_address, sub.latest_subject)}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-muted-foreground">
                         {sub.email_count} e-mail{sub.email_count !== 1 ? "s" : ""}
@@ -533,7 +538,7 @@ export function NewsletterDashboard() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{email.subject}</p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {cleanSenderName(email.from_address, email.subject)}
+                            {senderDisplayName(email.from_name, email.from_address, email.subject)}
                           </p>
                         </div>
                         <Button

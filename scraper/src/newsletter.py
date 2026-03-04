@@ -349,7 +349,11 @@ def _build_digest_html(config: Config, digest_content: str,
 
     template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
     env = Environment(loader=FileSystemLoader(template_dir))
-    env.filters["clean_sender"] = lambda addr, fb="": _clean_sender(addr, fb)
+    def _sender_display(addr: str, fb: str = "", from_name: str = "") -> str:
+        if from_name and from_name.strip():
+            return from_name.strip()
+        return _clean_sender(addr, fb)
+    env.filters["clean_sender"] = _sender_display
     template = env.get_template("newsletter_digest.html")
 
     return template.render(

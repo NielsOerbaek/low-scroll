@@ -51,7 +51,11 @@ export async function GET(
   }
 
   const subject = escapeHtml(body.subject || "(no subject)");
-  const from = escapeHtml(cleanSender(body.from_address || "", body.subject || ""));
+  // Prefer MIME display name, fall back to domain-derived name
+  const fromName = body.from_name?.trim()
+    ? body.from_name.trim()
+    : cleanSender(body.from_address || "", body.subject || "");
+  const from = escapeHtml(fromName);
   const date = body.received_at ? formatDate(body.received_at) : "";
 
   const header = `<div style="font-family:'Courier New',Courier,monospace;background:#1A2C4E;color:#fff;padding:12px 20px;font-size:13px;line-height:1.5;">

@@ -275,14 +275,17 @@ export function insertNewsletterEmail(
   toAddress: string,
   subject: string,
   bodyText: string,
-  bodyHtml: string
+  bodyHtml: string,
+  fromName: string = ""
 ): number {
   const db = getWritableDb();
+  // Ensure from_name column exists (migration for existing DBs)
+  try { db.prepare("ALTER TABLE newsletter_emails ADD COLUMN from_name TEXT DEFAULT ''").run(); } catch {}
   const result = db.prepare(
     `INSERT INTO newsletter_emails
-     (user_id, message_id, from_address, to_address, subject, body_text, body_html)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(userId, messageId, fromAddress, toAddress, subject, bodyText, bodyHtml);
+     (user_id, message_id, from_address, from_name, to_address, subject, body_text, body_html)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(userId, messageId, fromAddress, fromName, toAddress, subject, bodyText, bodyHtml);
   db.close();
   return Number(result.lastInsertRowid);
 }
@@ -297,6 +300,7 @@ export function getFirstActiveUserId(): number | null {
 export interface NewsletterEmail {
   id: number;
   from_address: string;
+  from_name: string;
   to_address: string;
   subject: string;
   received_at: string;
@@ -309,7 +313,8 @@ export interface NewsletterEmail {
 export function getNewsletterEmails(userId: number, limit = 100): NewsletterEmail[] {
   return getDb()
     .prepare(
-      `SELECT id, from_address, to_address, subject, received_at, processed,
+      `SELECT id, from_address, COALESCE(from_name, '') as from_name,
+              to_address, subject, received_at, processed,
               is_confirmation, confirmation_clicked, digest_date
        FROM newsletter_emails WHERE user_id = ?
        ORDER BY received_at DESC LIMIT ?`
@@ -323,15 +328,16 @@ export function deleteNewsletterEmail(userId: number, emailId: number): void {
   db.close();
 }
 
-export function getNewsletterEmailBody(userId: number, emailId: number): { body_html: string | null; body_text: string | null; summary: string | null; subject: string | null; from_address: string | null; received_at: string | null } | null {
-  // Ensure summary column exists
+export function getNewsletterEmailBody(userId: number, emailId: number): { body_html: string | null; body_text: string | null; summary: string | null; subject: string | null; from_address: string | null; from_name: string | null; received_at: string | null } | null {
+  // Ensure columns exist
   const wdb = getWritableDb();
   try { wdb.prepare("ALTER TABLE newsletter_emails ADD COLUMN summary TEXT").run(); } catch {}
+  try { wdb.prepare("ALTER TABLE newsletter_emails ADD COLUMN from_name TEXT DEFAULT ''").run(); } catch {}
   wdb.close();
 
   const row = getDb()
-    .prepare("SELECT body_html, body_text, summary, subject, from_address, received_at FROM newsletter_emails WHERE id = ? AND user_id = ?")
-    .get(emailId, userId) as { body_html: string | null; body_text: string | null; summary: string | null; subject: string | null; from_address: string | null; received_at: string | null } | undefined;
+    .prepare("SELECT body_html, body_text, summary, subject, from_address, COALESCE(from_name, '') as from_name, received_at FROM newsletter_emails WHERE id = ? AND user_id = ?")
+    .get(emailId, userId) as { body_html: string | null; body_text: string | null; summary: string | null; subject: string | null; from_address: string | null; from_name: string | null; received_at: string | null } | undefined;
   return row ?? null;
 }
 
@@ -373,6 +379,7 @@ export function getDigestRunHtml(userId: number, runId: number): string | null {
 
 export interface NewsletterSubscription {
   from_address: string;
+  from_name: string;
   to_address: string;
   email_count: number;
   last_received: string;
@@ -383,7 +390,12 @@ export interface NewsletterSubscription {
 export function getNewsletterSubscriptions(userId: number): NewsletterSubscription[] {
   return getDb()
     .prepare(
-      `SELECT from_address, to_address, COUNT(*) as email_count,
+      `SELECT from_address,
+              (SELECT COALESCE(from_name, '') FROM newsletter_emails ne4
+               WHERE ne4.user_id = ? AND ne4.from_address = ne.from_address
+               AND COALESCE(from_name, '') != ''
+               ORDER BY received_at DESC LIMIT 1) as from_name,
+              to_address, COUNT(*) as email_count,
               MAX(received_at) as last_received,
               (SELECT id FROM newsletter_emails ne2
                WHERE ne2.user_id = ? AND ne2.from_address = ne.from_address
@@ -396,7 +408,7 @@ export function getNewsletterSubscriptions(userId: number): NewsletterSubscripti
        GROUP BY from_address
        ORDER BY last_received DESC`
     )
-    .all(userId, userId, userId) as NewsletterSubscription[];
+    .all(userId, userId, userId, userId) as NewsletterSubscription[];
 }
 
 // ── Unified Feed ──────────────────────────────────────────────

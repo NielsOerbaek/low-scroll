@@ -134,6 +134,7 @@ class Database:
                 user_id INTEGER NOT NULL REFERENCES users(id),
                 message_id TEXT,
                 from_address TEXT NOT NULL,
+                from_name TEXT DEFAULT '',
                 to_address TEXT NOT NULL,
                 subject TEXT,
                 body_text TEXT,
@@ -588,12 +589,17 @@ class Database:
     def insert_newsletter_email(self, user_id: int, message_id: str,
                                 from_address: str, to_address: str,
                                 subject: str, body_text: str,
-                                body_html: str) -> int:
+                                body_html: str, from_name: str = "") -> int:
+        # Ensure from_name column exists (migration for existing DBs)
+        try:
+            self.execute("ALTER TABLE newsletter_emails ADD COLUMN from_name TEXT DEFAULT ''")
+        except Exception:
+            pass
         cursor = self.execute(
             """INSERT INTO newsletter_emails
-               (user_id, message_id, from_address, to_address, subject, body_text, body_html)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, message_id, from_address, to_address, subject, body_text, body_html),
+               (user_id, message_id, from_address, from_name, to_address, subject, body_text, body_html)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, message_id, from_address, from_name, to_address, subject, body_text, body_html),
         )
         self.conn.commit()
         return cursor.lastrowid

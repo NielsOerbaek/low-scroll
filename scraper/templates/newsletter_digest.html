@@ -33,7 +33,7 @@
           {% for email in emails %}
           <p style="margin:0 0 4px 0;font-family:'Courier New',Courier,monospace;font-size:11px;">
             <a href="https://news.raakode.dk/api/newsletter/email/{{ email.id }}/html" style="color:#1A2C4E;text-decoration:underline;">{{ email.subject }}</a>
-            <span style="color:#8e8e8e;"> — {{ email.from_address|clean_sender(email.subject) }}</span>
+            <span style="color:#8e8e8e;"> — {{ email.from_address|clean_sender(email.subject, email.from_name|default('', true)) }}</span>
           </p>
           {% endfor %}
         </td></tr>
