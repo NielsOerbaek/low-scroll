@@ -26,6 +26,19 @@
           </div>
         </td></tr>
 
+        <!-- Original newsletters -->
+        {% if emails %}
+        <tr><td style="padding:16px 24px;border-top:1px solid #eee;">
+          <p style="margin:0 0 8px 0;font-family:'Courier New',Courier,monospace;font-size:11px;color:#8e8e8e;font-weight:600;">Læs originale nyhedsbreve:</p>
+          {% for email in emails %}
+          <p style="margin:0 0 4px 0;font-family:'Courier New',Courier,monospace;font-size:11px;">
+            <a href="https://news.raakode.dk/api/newsletter/email/{{ email.id }}/html" style="color:#1A2C4E;text-decoration:underline;">{{ email.subject }}</a>
+            <span style="color:#8e8e8e;"> — {{ email.from_address }}</span>
+          </p>
+          {% endfor %}
+        </td></tr>
+        {% endif %}
+
         <!-- Footer -->
         <tr><td style="padding:16px 24px;border-top:1px solid #eee;">
           <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:11px;color:#8e8e8e;">

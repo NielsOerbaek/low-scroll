@@ -520,22 +520,32 @@ export function NewsletterDashboard() {
                             )}
                             {emailBody ? (
                               <details>
-                                <summary className="text-xs text-muted-foreground cursor-pointer">Vis original e-mail</summary>
+                                <summary className="text-xs text-muted-foreground cursor-pointer">
+                                  Vis original e-mail
+                                  <a
+                                    href={`/api/newsletter/email/${email.id}/html`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ml-2 text-blue-600 hover:underline"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    Åbn i nyt faneblad
+                                  </a>
+                                </summary>
                                 <iframe
-                                  srcDoc={emailBody}
+                                  src={`/api/newsletter/email/${email.id}/html`}
                                   className="w-full border rounded bg-white mt-2"
                                   style={{ minHeight: 300 }}
                                   sandbox="allow-same-origin"
                                   title={email.subject}
                                   onLoad={(e) => {
                                     const frame = e.target as HTMLIFrameElement;
-                                    const doc = frame.contentDocument;
-                                    if (doc) {
-                                      doc.querySelectorAll("img").forEach((img) => {
-                                        img.onerror = () => { img.style.display = "none"; };
-                                      });
-                                      frame.style.height = doc.documentElement.scrollHeight + "px";
-                                    }
+                                    try {
+                                      const doc = frame.contentDocument;
+                                      if (doc) {
+                                        frame.style.height = doc.documentElement.scrollHeight + "px";
+                                      }
+                                    } catch {}
                                   }}
                                 />
                               </details>
@@ -613,23 +623,34 @@ export function NewsletterDashboard() {
                         {loadingDigest ? (
                           <p className="text-sm text-muted-foreground">Indlæser...</p>
                         ) : digestHtml ? (
-                          <iframe
-                            srcDoc={digestHtml}
-                            className="w-full border rounded bg-white"
-                            style={{ minHeight: 400 }}
-                            sandbox="allow-same-origin"
-                            title={`Oversigt ${run.digest_date}`}
-                            onLoad={(e) => {
-                              const frame = e.target as HTMLIFrameElement;
-                              const doc = frame.contentDocument;
-                              if (doc) {
-                                doc.querySelectorAll("img").forEach((img) => {
-                                  img.onerror = () => { img.style.display = "none"; };
-                                });
-                                frame.style.height = doc.documentElement.scrollHeight + "px";
-                              }
-                            }}
-                          />
+                          <>
+                            <div className="mb-2">
+                              <a
+                                href={`/api/newsletter/digest/${run.id}/html`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                Åbn i nyt faneblad
+                              </a>
+                            </div>
+                            <iframe
+                              src={`/api/newsletter/digest/${run.id}/html`}
+                              className="w-full border rounded bg-white"
+                              style={{ minHeight: 400 }}
+                              sandbox="allow-same-origin"
+                              title={`Oversigt ${run.digest_date}`}
+                              onLoad={(e) => {
+                                const frame = e.target as HTMLIFrameElement;
+                                try {
+                                  const doc = frame.contentDocument;
+                                  if (doc) {
+                                    frame.style.height = doc.documentElement.scrollHeight + "px";
+                                  }
+                                } catch {}
+                              }}
+                            />
+                          </>
                         ) : (
                           <p className="text-sm text-muted-foreground">Ingen HTML gemt for denne oversigt.</p>
                         )}

@@ -188,7 +188,7 @@ def build_and_send_digest(user_id: int):
             summaries = _summarize_newsletters(client, emails, system_prompt, db=db)
             recent_digests = db.get_recent_digest_html(user_id, limit=3)
             digest_title, digest_content = _structure_digest(client, summaries, digest_prompt, recent_digests)
-            html = _build_digest_html(config, digest_content, len(emails), today)
+            html = _build_digest_html(config, digest_content, len(emails), today, emails=emails)
             db.save_digest_html(run_id, html)
             _send_digest_email(config, db, user_id, html, emails, digest_title)
 
@@ -329,7 +329,8 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
 
 
 def _build_digest_html(config: Config, digest_content: str,
-                       email_count: int, digest_date: str) -> str:
+                       email_count: int, digest_date: str,
+                       emails: list[dict] | None = None) -> str:
     """Build HTML for the newsletter digest email using Jinja2."""
     import os
     from jinja2 import Environment, FileSystemLoader
@@ -343,6 +344,7 @@ def _build_digest_html(config: Config, digest_content: str,
         email_count=email_count,
         digest_date=digest_date,
         base_url=config.BASE_URL,
+        emails=emails or [],
     )
 
 
@@ -365,9 +367,7 @@ def _get_recipients(db: Database, user_id: int) -> list[str]:
 
 def _send_digest_email(config: Config, db: Database, user_id: int,
                        html: str, emails: list[dict], subject: str = "Newsletter Digest"):
-    """Send the digest email via Resend, with original newsletters attached as HTML."""
-    import base64
-    import re
+    """Send the digest email via Resend with links to original newsletters."""
     import resend
     resend.api_key = config.RESEND_API_KEY
 
@@ -376,24 +376,11 @@ def _send_digest_email(config: Config, db: Database, user_id: int,
         logger.warning(f"No email recipients configured for user {user_id}, skipping newsletter digest")
         return
 
-    attachments = []
-    for email in emails:
-        body_html = email.get("body_html") or ""
-        if not body_html:
-            continue
-        safe_subject = re.sub(r'[^\w\s-]', '', email.get("subject", "email")).strip()[:50]
-        safe_subject = re.sub(r'\s+', '_', safe_subject)
-        attachments.append({
-            "filename": f"{safe_subject}.html",
-            "content": base64.b64encode(body_html.encode("utf-8")).decode("ascii"),
-        })
-
     resend.Emails.send({
         "from": "FøhnsStiftstidende <newsletters@raakode.dk>",
         "to": recipients,
         "subject": subject,
         "html": html,
-        "attachments": attachments,
     })
 
 
