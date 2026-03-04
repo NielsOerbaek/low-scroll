@@ -323,7 +323,7 @@ export function NewsletterDashboard() {
       </div>
 
       {/* ── Settings (collapsible on mobile) ─────────────────── */}
-      <details className="md:open group">
+      <details open className="group">
         <summary className="md:hidden text-sm font-semibold cursor-pointer py-2 flex items-center gap-1">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"
                className="transition-transform group-open:rotate-90">
