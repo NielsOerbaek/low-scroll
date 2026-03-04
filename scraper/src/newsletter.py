@@ -50,7 +50,7 @@ def _classify_single_email(db: Database, client: Anthropic, email: dict):
     )
 
     response = client.messages.create(
-        model="claude-sonnet-4-5-latest",
+        model="claude-sonnet-4-6",
         max_tokens=10,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -123,7 +123,7 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
     )
 
     response = client.messages.create(
-        model="claude-sonnet-4-5-latest",
+        model="claude-sonnet-4-6",
         max_tokens=500,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -145,7 +145,7 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
         # Ask Claude to verify the response page
         page_text = BeautifulSoup(resp.text[:5000], "lxml").get_text(separator=" ", strip=True)[:2000]
         verify = client.messages.create(
-            model="claude-sonnet-4-5-latest",
+            model="claude-sonnet-4-6",
             max_tokens=50,
             messages=[{"role": "user", "content": (
                 f"Did this newsletter subscription confirmation succeed? "
@@ -191,7 +191,7 @@ def build_and_send_digest(user_id: int):
             digest_content = _structure_digest(client, summaries, digest_prompt)
             html = _build_digest_html(config, digest_content, len(emails), today)
             db.save_digest_html(run_id, html)
-            _send_digest_email(config, db, user_id, html, len(emails))
+            _send_digest_email(config, db, user_id, html, emails)
 
             email_ids = [e["id"] for e in emails]
             db.mark_emails_digested(email_ids, today)
@@ -236,7 +236,7 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
 
         try:
             response = client.messages.create(
-                model="claude-opus-4-6-latest",
+                model="claude-opus-4-6",
                 max_tokens=300,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -293,7 +293,7 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
 
     try:
         response = client.messages.create(
-            model="claude-opus-4-6-latest",
+            model="claude-opus-4-6",
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -345,8 +345,10 @@ def _get_recipients(db: Database, user_id: int) -> list[str]:
 
 
 def _send_digest_email(config: Config, db: Database, user_id: int,
-                       html: str, email_count: int):
-    """Send the digest email via Resend."""
+                       html: str, emails: list[dict]):
+    """Send the digest email via Resend, with original newsletters attached as HTML."""
+    import base64
+    import re
     import resend
     resend.api_key = config.RESEND_API_KEY
 
@@ -355,11 +357,26 @@ def _send_digest_email(config: Config, db: Database, user_id: int,
         logger.warning(f"No email recipients configured for user {user_id}, skipping newsletter digest")
         return
 
+    attachments = []
+    for email in emails:
+        body_html = email.get("body_html") or ""
+        if not body_html:
+            continue
+        # Build a safe filename from the subject
+        safe_subject = re.sub(r'[^\w\s-]', '', email.get("subject", "email")).strip()[:50]
+        safe_subject = re.sub(r'\s+', '_', safe_subject)
+        attachments.append({
+            "filename": f"{safe_subject}.html",
+            "content": base64.b64encode(body_html.encode("utf-8")).decode("ascii"),
+        })
+
+    email_count = len(emails)
     resend.Emails.send({
         "from": "newsletters@raakode.dk",
         "to": recipients,
         "subject": f"Newsletter digest: {email_count} email{'s' if email_count != 1 else ''} summarized",
         "html": html,
+        "attachments": attachments,
     })
 
 
