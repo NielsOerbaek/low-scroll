@@ -37,22 +37,24 @@ def classify_emails(user_id: int):
 
 
 def _classify_single_email(db: Database, client: Anthropic, email: dict):
-    """Use Claude to determine if an email is a confirmation or newsletter content."""
-    body_preview = (email.get("body_text") or "")[:500]
-    prompt = (
-        f"Analyze this email and determine if it is a subscription confirmation email "
-        f"(asking the user to click a link to confirm their newsletter subscription) or a regular "
-        f"newsletter/content email.\n\n"
-        f"From: {email['from_address']}\n"
-        f"Subject: {email['subject']}\n"
-        f"Body preview: {body_preview}\n\n"
-        f"Respond with EXACTLY one word: CONFIRMATION or NEWSLETTER"
-    )
+    """Use Claude to determine if an email is a confirmation, welcome/onboarding, or newsletter content."""
+    body_preview = (email.get("body_text") or "")[:1000]
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=10,
-        messages=[{"role": "user", "content": prompt}],
+        system=(
+            "You classify incoming emails into exactly one of three categories:\n"
+            "- CONFIRMATION: asks the user to click a link to confirm/verify their newsletter subscription\n"
+            "- WELCOME: a welcome or onboarding email with no real news content (e.g. 'Welcome to X', account setup, tips for new subscribers)\n"
+            "- NEWSLETTER: a regular newsletter with actual news, stories, or content worth summarizing"
+        ),
+        messages=[{"role": "user", "content": (
+            f"From: {email['from_address']}\n"
+            f"Subject: {email['subject']}\n"
+            f"Body preview: {body_preview}\n\n"
+            f"Respond with EXACTLY one word: CONFIRMATION, WELCOME, or NEWSLETTER"
+        )}],
     )
 
     answer = response.content[0].text.strip().upper()
@@ -60,6 +62,9 @@ def _classify_single_email(db: Database, client: Anthropic, email: dict):
     if "CONFIRMATION" in answer:
         logger.info(f"Email {email['id']} classified as CONFIRMATION: {email['subject']}")
         db.mark_email_as_confirmation(email["id"])
+    elif "WELCOME" in answer:
+        logger.info(f"Email {email['id']} classified as WELCOME (skipped): {email['subject']}")
+        db.mark_email_as_confirmation(email["id"])  # Treat like confirmation — processed but not digested
     else:
         logger.info(f"Email {email['id']} classified as NEWSLETTER: {email['subject']}")
         db.mark_email_processed(email["id"])
@@ -112,20 +117,16 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
     body_html = email.get("body_html") or ""
     body_text = email.get("body_text") or ""
 
-    prompt = (
-        f"Extract the confirmation/verify URL from this email. This is a subscription "
-        f"confirmation email. Find the URL that the user should click to confirm their subscription.\n\n"
-        f"Subject: {email['subject']}\n"
-        f"From: {email['from_address']}\n\n"
-        f"HTML body (first 3000 chars):\n{body_html[:3000]}\n\n"
-        f"Text body (first 1500 chars):\n{body_text[:1500]}\n\n"
-        f"Respond with ONLY the full URL, nothing else. If you cannot find a confirmation URL, respond with NONE."
-    )
-
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=500,
-        messages=[{"role": "user", "content": prompt}],
+        system="Extract the confirmation/verify URL from subscription confirmation emails. Respond with ONLY the full URL, nothing else. If no confirmation URL exists, respond with NONE.",
+        messages=[{"role": "user", "content": (
+            f"Subject: {email['subject']}\n"
+            f"From: {email['from_address']}\n\n"
+            f"HTML body (first 3000 chars):\n{body_html[:3000]}\n\n"
+            f"Text body (first 1500 chars):\n{body_text[:1500]}"
+        )}],
     )
 
     url = response.content[0].text.strip()
@@ -147,11 +148,8 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
         verify = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=50,
-            messages=[{"role": "user", "content": (
-                f"Did this newsletter subscription confirmation succeed? "
-                f"Page content after clicking the confirm link:\n\n{page_text}\n\n"
-                f"Respond with EXACTLY: SUCCESS, FAILED, or UNCLEAR"
-            )}],
+            system="You verify whether a newsletter subscription confirmation succeeded by reading the resulting page. Respond with EXACTLY one word: SUCCESS, FAILED, or UNCLEAR.",
+            messages=[{"role": "user", "content": f"Page content after clicking the confirm link:\n\n{page_text}"}],
         )
         result = verify.content[0].text.strip().upper()
         if "SUCCESS" in result:
@@ -210,12 +208,12 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
     """Use Claude to summarize each newsletter email."""
     summaries = []
 
-    default_instruction = (
-        "Summarize this newsletter email thoroughly. Include all notable stories, data points, "
-        "and takeaways. Use bullet points and cover both main stories and smaller items. "
-        "Use plain text, no markdown."
+    default_system = (
+        "You summarize newsletter emails. Cover all notable stories, data points, and takeaways. "
+        "Use bullet points for multiple stories. Include both main stories and smaller items. "
+        "Use plain text, no markdown. Be thorough but concise."
     )
-    instruction = system_prompt.strip() if system_prompt.strip() else default_instruction
+    system = system_prompt.strip() if system_prompt.strip() else default_system
 
     for email in emails:
         body = email.get("body_text") or ""
@@ -225,20 +223,17 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
 
         body = body[:8000]
 
-        prompt = (
-            f"{instruction}\n\n"
-            f"From: {email['from_address']}\n"
-            f"Subject: {email['subject']}\n"
-            f"Date: {email['received_at']}\n\n"
-            f"Content:\n{body}\n\n"
-            f"Provide a brief, informative summary."
-        )
-
         try:
             response = client.messages.create(
                 model="claude-opus-4-6",
-                max_tokens=300,
-                messages=[{"role": "user", "content": prompt}],
+                max_tokens=600,
+                system=system,
+                messages=[{"role": "user", "content": (
+                    f"From: {email['from_address']}\n"
+                    f"Subject: {email['subject']}\n"
+                    f"Date: {email['received_at']}\n\n"
+                    f"Content:\n{body}"
+                )}],
             )
             summary = response.content[0].text.strip()
         except Exception as e:
@@ -272,43 +267,41 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
             f"Summary:\n{s['summary']}\n\n"
         )
 
-    default_instruction = (
+    default_system = (
         "You are writing a daily briefing newsletter. Your output should read like a polished, "
         "well-structured newsletter — not a list of summaries.\n\n"
         "Structure:\n"
-        "1. Start with a short bullet-point overview listing each story covered (one line each).\n"
-        "2. Then write the full briefing as flowing prose organized by theme. Group related stories, "
+        "1. Start with a short bullet-point overview listing each story covered. "
+        "For each bullet, mention which newsletter(s) covered it in parentheses.\n"
+        "2. After the bullet list, state how many newsletters this digest covers.\n"
+        "3. Then write the full briefing as flowing prose organized by theme. Group related stories, "
         "combine overlapping coverage from different sources, and reference which newsletter(s) "
         "reported each story. Put the most important stories first.\n"
-        "3. The tone should be informative and concise — like a morning briefing for a busy reader."
+        "4. The tone should be informative and concise — like a morning briefing for a busy reader.\n\n"
+        "Output format:\n"
+        "Wrap the email subject line in <title>...</title> tags.\n"
+        "Then write the digest as simple HTML suitable for embedding in an email. "
+        "Use only basic tags: <h3>, <p>, <ul>, <li>, <strong>, <em>, <br>. "
+        "Use inline styles sparingly (only font-size and color). "
+        "Do NOT include <html>, <head>, <body>, or <style> tags."
     )
-    instruction = digest_prompt.strip() if digest_prompt.strip() else default_instruction
-
-    prompt = (
-        f"{instruction}\n\n"
-        f"Here are the individual newsletter summaries:\n\n"
-        f"{summaries_text}\n\n"
-        f"Output format:\n"
-        f"First line: TITLE: <a short, compelling email subject line highlighting top stories>\n"
-        f"Then a blank line, followed by the digest as simple HTML suitable for embedding in an email. "
-        f"Use only basic tags: <h3>, <p>, <ul>, <li>, <strong>, <em>, <br>. "
-        f"Use inline styles sparingly (only font-size and color). "
-        f"Do NOT include <html>, <head>, <body>, or <style> tags."
-    )
+    system = digest_prompt.strip() if digest_prompt.strip() else default_system
 
     try:
         response = client.messages.create(
             model="claude-opus-4-6",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}],
+            max_tokens=4000,
+            system=system,
+            messages=[{"role": "user", "content": summaries_text}],
         )
         text = response.content[0].text.strip()
-        # Extract title from first line
-        title = None
-        if text.startswith("TITLE:"):
-            first_newline = text.index("\n")
-            title = text[6:first_newline].strip()
-            text = text[first_newline:].strip()
+        # Extract title from <title>...</title> tags
+        import re
+        title_match = re.search(r'<title>(.*?)</title>', text, re.DOTALL)
+        title = title_match.group(1).strip() if title_match else None
+        if title_match:
+            text = text[:title_match.start()] + text[title_match.end():]
+            text = text.strip()
         return title or "Newsletter Digest", text
     except Exception as e:
         logger.error(f"Failed to structure digest: {e}")
