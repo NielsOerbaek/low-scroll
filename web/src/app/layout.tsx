@@ -5,6 +5,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { getCurrentUserId } from "@/lib/auth";
 import { isUserAdmin } from "@/lib/db";
+import { MobileNav } from "@/components/mobile-nav";
 
 const geistMono = Geist_Mono({ subsets: ["latin"] });
 
@@ -62,28 +63,31 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {!isNewsDomain && (
           <header className="border-b">
             <div className="h-[2px] bg-gradient-to-r from-[#FEDA77] via-[#DD2A7B] to-[#515BD4]" />
-            <nav className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+            <nav className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between relative">
               <Link href={userId ? "/feed" : "/"} className="flex items-center gap-2">
                 <img src="/icon-192.png" alt="low-scroll" width={28} height={28} />
                 <span className="font-semibold text-lg tracking-tight">low-scroll</span>
               </Link>
               {userId && (
-                <div className="flex items-center gap-4">
-                  <Link href="/newsletters" className="text-sm text-muted-foreground hover:text-foreground">
-                    Newsletters
-                  </Link>
-                  <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
-                    Settings
-                  </Link>
-                  {admin && (
-                    <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground">
-                      Admin
+                <>
+                  <div className="hidden md:flex items-center gap-4">
+                    <Link href="/newsletters" className="text-sm text-muted-foreground hover:text-foreground">
+                      Newsletters
                     </Link>
-                  )}
-                  <a href="/api/auth/logout" className="text-sm text-muted-foreground hover:text-foreground">
-                    Logout
-                  </a>
-                </div>
+                    <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+                      Settings
+                    </Link>
+                    {admin && (
+                      <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground">
+                        Admin
+                      </Link>
+                    )}
+                    <a href="/api/auth/logout" className="text-sm text-muted-foreground hover:text-foreground">
+                      Logout
+                    </a>
+                  </div>
+                  <MobileNav admin={!!admin} />
+                </>
               )}
             </nav>
           </header>
