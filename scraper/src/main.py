@@ -591,7 +591,8 @@ def check_newsletter_digest():
     if not config.ANTHROPIC_API_KEY:
         return
 
-    now = datetime.now(timezone.utc)
+    from zoneinfo import ZoneInfo
+    now = datetime.now(ZoneInfo("Europe/Copenhagen"))
     today = now.strftime("%Y-%m-%d")
     current_dow = now.weekday()  # 0=Mon, 6=Sun
     current_minutes = now.hour * 60 + now.minute

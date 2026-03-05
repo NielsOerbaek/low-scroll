@@ -212,7 +212,9 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
     default_system = (
         "You summarize newsletter emails. Cover all notable stories, data points, and takeaways. "
         "Use bullet points for multiple stories. Include both main stories and smaller items. "
-        "Use plain text, no markdown. Be thorough but concise."
+        "Include the most relevant external links (URLs) from the original email — especially links to articles, reports, or sources mentioned. "
+        "If the email contains noteworthy images (charts, diagrams, photos), include their URLs using <img> tags. "
+        "Use plain text with minimal HTML (<a>, <img>). Be thorough but concise."
     )
     system = system_prompt.strip() if system_prompt.strip() else default_system
 
