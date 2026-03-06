@@ -3,7 +3,7 @@ import { getCurrentUserId } from "@/lib/auth";
 import {
   getNewsletterEmails, deleteNewsletterEmail, getUserConfig, setUserConfig,
   getFirstActiveUserId, getNewsletterEmailBody, getDigestRuns, getDigestRunHtml,
-  getNewsletterSubscriptions,
+  getNewsletterSubscriptions, deleteDigestRun,
 } from "@/lib/db";
 
 async function resolveUserId(): Promise<number | null> {
@@ -96,6 +96,13 @@ export async function DELETE(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: "No user" }, { status: 404 });
 
   const emailId = request.nextUrl.searchParams.get("id");
+  const digestId = request.nextUrl.searchParams.get("digest_id");
+
+  if (digestId) {
+    deleteDigestRun(userId, parseInt(digestId, 10));
+    return NextResponse.json({ ok: true });
+  }
+
   if (!emailId) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }

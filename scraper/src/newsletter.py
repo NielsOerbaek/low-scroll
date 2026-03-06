@@ -229,7 +229,7 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
         try:
             response = client.messages.create(
                 model="claude-opus-4-6",
-                max_tokens=600,
+                max_tokens=2000,
                 system=system,
                 messages=[{"role": "user", "content": (
                     f"From: {email['from_address']}\n"
@@ -307,7 +307,7 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
     try:
         response = client.messages.create(
             model="claude-opus-4-6",
-            max_tokens=4000,
+            max_tokens=10000,
             system=system,
             messages=[{"role": "user", "content": context + summaries_text}],
         )

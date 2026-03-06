@@ -361,6 +361,12 @@ export function getDigestRuns(userId: number, limit = 20): DigestRun[] {
     .all(userId, limit) as DigestRun[];
 }
 
+export function deleteDigestRun(userId: number, runId: number): void {
+  const db = getWritableDb();
+  db.prepare("DELETE FROM newsletter_digest_runs WHERE id = ? AND user_id = ?").run(runId, userId);
+  db.close();
+}
+
 export function getDigestRunHtml(userId: number, runId: number): string | null {
   // Ensure column exists
   const db = getWritableDb();

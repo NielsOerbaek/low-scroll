@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (isNews) {
     return {
-      title: "Føhns Stiftstidende",
+      title: "FøhnsStiftstidende",
       icons: { icon: "/news-favicon.ico" },
     };
   }

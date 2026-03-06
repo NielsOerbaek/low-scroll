@@ -713,7 +713,7 @@ export function NewsletterDashboard() {
                   <summary className="px-4 py-2 text-xs text-blue-700 font-semibold cursor-pointer bg-blue-50/50 hover:bg-blue-50">
                     AI-opsummering
                   </summary>
-                  <div className="px-4 py-3 bg-blue-50/30">
+                  <div className="px-4 py-3 bg-blue-50/30 max-h-[40vh] overflow-y-auto">
                     <p className="text-sm whitespace-pre-wrap">{emailSummary}</p>
                   </div>
                 </details>
