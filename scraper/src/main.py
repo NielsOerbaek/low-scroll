@@ -578,7 +578,8 @@ def check_newsletter_processing():
             try:
                 classify_emails(user_id)
                 click_confirmations(user_id)
-                summarize_new_emails(user_id)
+                if config.NEWSLETTER_DIGEST_MODE != "oneshot":
+                    summarize_new_emails(user_id)
             except Exception as e:
                 logger.error(f"Newsletter processing error for user {user_id}: {e}")
     finally:
@@ -588,6 +589,8 @@ def check_newsletter_processing():
 def check_newsletter_digest():
     """Check all user schedules and send newsletter digests when due."""
     config = Config()
+    if config.NEWSLETTER_DIGEST_MODE == "oneshot":
+        return  # Digest generation handled by Oneshot agent
     if not config.ANTHROPIC_API_KEY:
         return
 
@@ -654,9 +657,10 @@ def check_newsletter_digest():
                 if last_sent == today:
                     continue
 
-                logger.info(f"Newsletter digest schedule '{schedule_id}' due for user {user_id} at {schedule['time']}")
+                schedule_name = schedule.get("name") or schedule_id
+                logger.info(f"Newsletter digest schedule '{schedule_name}' due for user {user_id} at {schedule['time']}")
                 try:
-                    build_and_send_digest(user_id)
+                    build_and_send_digest(user_id, schedule_name=schedule_name)
                     db.set_user_config(user_id, last_key, today)
                 except Exception as e:
                     logger.error(f"Newsletter digest error for user {user_id} schedule '{schedule_id}': {e}")

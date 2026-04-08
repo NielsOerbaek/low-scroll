@@ -349,12 +349,21 @@ export interface DigestRun {
   finished_at: string | null;
   status: string;
   error: string | null;
+  subject: string | null;
+  schedule_name: string | null;
 }
 
 export function getDigestRuns(userId: number, limit = 20): DigestRun[] {
+  // Ensure new columns exist (idempotent migrations)
+  const wdb = getWritableDb();
+  for (const col of ["subject TEXT", "schedule_name TEXT"]) {
+    try { wdb.prepare(`ALTER TABLE newsletter_digest_runs ADD COLUMN ${col}`).run(); } catch { /* exists */ }
+  }
+  wdb.close();
+
   return getDb()
     .prepare(
-      `SELECT id, digest_date, email_count, started_at, finished_at, status, error
+      `SELECT id, digest_date, email_count, started_at, finished_at, status, error, subject, schedule_name
        FROM newsletter_digest_runs WHERE user_id = ?
        ORDER BY started_at DESC LIMIT ?`
     )
@@ -415,6 +424,159 @@ export function getNewsletterSubscriptions(userId: number): NewsletterSubscripti
        ORDER BY last_received DESC`
     )
     .all(userId, userId, userId, userId) as NewsletterSubscription[];
+}
+
+// ── Oneshot / Digest helpers ──────────────────────────────────
+
+export function getUndigestedEmails(userId: number): { id: number; from_address: string; from_name: string; subject: string; body_text: string; received_at: string }[] {
+  return getDb()
+    .prepare(
+      `SELECT id, from_address, COALESCE(from_name, '') as from_name, subject,
+              COALESCE(body_text, '') as body_text, received_at
+       FROM newsletter_emails
+       WHERE user_id = ? AND processed = 1 AND is_confirmation = 0 AND digest_date IS NULL
+       ORDER BY received_at ASC`
+    )
+    .all(userId) as any[];
+}
+
+export function getNewsletterSchedules(userId: number): { id: string; name: string; time: string; days: number[]; enabled: boolean }[] {
+  const raw = getUserConfig(userId, "newsletter_schedules");
+  if (!raw) return [];
+  try {
+    const schedules = JSON.parse(raw) as any[];
+    return schedules.filter((s: any) => s.enabled !== false);
+  } catch {
+    return [];
+  }
+}
+
+export function getRecentDigestTexts(userId: number, limit = 3): { digest_date: string; digest_html: string }[] {
+  const db = getWritableDb();
+  try { db.prepare("ALTER TABLE newsletter_digest_runs ADD COLUMN digest_html TEXT").run(); } catch {}
+  db.close();
+
+  return getDb()
+    .prepare(
+      `SELECT digest_date, digest_html FROM newsletter_digest_runs
+       WHERE user_id = ? AND status = 'success' AND digest_html IS NOT NULL
+       ORDER BY digest_date DESC LIMIT ?`
+    )
+    .all(userId, limit) as any[];
+}
+
+export function getLastDigestDate(userId: number): string | null {
+  const row = getDb()
+    .prepare(
+      `SELECT digest_date FROM newsletter_digest_runs
+       WHERE user_id = ? AND status = 'success'
+       ORDER BY digest_date DESC LIMIT 1`
+    )
+    .get(userId) as { digest_date: string } | undefined;
+  return row?.digest_date ?? null;
+}
+
+export function getLastScheduleRun(userId: number, scheduleId: string): string | null {
+  return getUserConfig(userId, `newsletter_last_digest_${scheduleId}`);
+}
+
+export function setLastScheduleRun(userId: number, scheduleId: string, date: string): void {
+  setUserConfig(userId, `newsletter_last_digest_${scheduleId}`, date);
+}
+
+export function insertDigestRun(userId: number, digestDate: string): number {
+  const db = getWritableDb();
+  const result = db.prepare(
+    "INSERT INTO newsletter_digest_runs (user_id, digest_date) VALUES (?, ?)"
+  ).run(userId, digestDate);
+  db.close();
+  return Number(result.lastInsertRowid);
+}
+
+export function finishDigestRun(
+  runId: number,
+  status: string,
+  emailCount = 0,
+  error: string | null = null,
+  subject: string | null = null,
+  scheduleName: string | null = null
+): void {
+  const db = getWritableDb();
+  for (const col of ["subject TEXT", "schedule_name TEXT"]) {
+    try { db.prepare(`ALTER TABLE newsletter_digest_runs ADD COLUMN ${col}`).run(); } catch {}
+  }
+  db.prepare(
+    `UPDATE newsletter_digest_runs
+     SET finished_at = datetime('now'), status = ?, email_count = ?, error = ?, subject = ?, schedule_name = ?
+     WHERE id = ?`
+  ).run(status, emailCount, error, subject, scheduleName, runId);
+  db.close();
+}
+
+export function saveDigestHtml(runId: number, html: string): void {
+  const db = getWritableDb();
+  try { db.prepare("ALTER TABLE newsletter_digest_runs ADD COLUMN digest_html TEXT").run(); } catch {}
+  db.prepare("UPDATE newsletter_digest_runs SET digest_html = ? WHERE id = ?").run(html, runId);
+  db.close();
+}
+
+export function markEmailsDigested(emailIds: number[], digestDate: string): void {
+  if (!emailIds.length) return;
+  const db = getWritableDb();
+  const placeholders = emailIds.map(() => "?").join(",");
+  db.prepare(
+    `UPDATE newsletter_emails SET digest_date = ? WHERE id IN (${placeholders})`
+  ).run(digestDate, ...emailIds);
+  db.close();
+}
+
+export function saveEmailSummary(emailId: number, summary: string): void {
+  const db = getWritableDb();
+  try { db.prepare("ALTER TABLE newsletter_emails ADD COLUMN summary TEXT").run(); } catch {}
+  db.prepare("UPDATE newsletter_emails SET summary = ? WHERE id = ?").run(summary, emailId);
+  db.close();
+}
+
+export function getNewsletterRecipients(userId: number): string[] {
+  try {
+    const raw = getUserConfig(userId, "newsletter_recipients");
+    if (raw) {
+      const recipients = JSON.parse(raw);
+      if (Array.isArray(recipients) && recipients.length) return recipients;
+    }
+  } catch {}
+  // Fallback: old single-email key
+  const old = getUserConfig(userId, "newsletter_digest_email") || "";
+  if (old) return [old];
+  // Fallback: main email_recipient
+  const main = getUserConfig(userId, "email_recipient") || "";
+  return main ? [main] : [];
+}
+
+// ── IG Feed Digest helpers ────────────────────────────────────
+
+export function getPostsSince(userId: number, sinceDate: string): UnifiedFeedItem[] {
+  const db = getDb();
+  const sql = `
+    SELECT p.id, p.username AS source_name, p.type, p.caption AS content, p.timestamp, p.permalink,
+           'instagram' AS platform, NULL AS comment_count
+    FROM posts p WHERE p.user_id = ? AND p.timestamp >= ?
+    UNION ALL
+    SELECT fp.id, fg.name AS source_name, 'fb_post' AS type, fp.content, fp.timestamp, fp.permalink,
+           'facebook' AS platform, fp.comment_count
+    FROM fb_posts fp JOIN fb_groups fg ON fp.group_id = fg.group_id
+    WHERE fg.user_id = ? AND fp.timestamp >= ?
+    ORDER BY timestamp DESC
+  `;
+  return db.prepare(sql).all(userId, sinceDate, userId, sinceDate) as UnifiedFeedItem[];
+}
+
+export function getLastIgDigestDate(userId: number): string | null {
+  return getUserConfig(userId, "ig_last_digest");
+}
+
+export function setLastIgDigestDate(userId: number, date: string): void {
+  setUserConfig(userId, "ig_last_digest", date);
 }
 
 // ── Unified Feed ──────────────────────────────────────────────

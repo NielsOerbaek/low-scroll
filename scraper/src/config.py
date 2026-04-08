@@ -9,3 +9,4 @@ class Config:
     BASE_URL = os.environ.get("BASE_URL", "https://ig.raakode.dk")
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
     NEWSLETTER_DIGEST_TIME = os.environ.get("NEWSLETTER_DIGEST_TIME", "07:00")
+    NEWSLETTER_DIGEST_MODE = os.environ.get("NEWSLETTER_DIGEST_MODE", "local")

@@ -30,7 +30,10 @@ export function middleware(request: NextRequest) {
   const isPublicApi = request.nextUrl.pathname === "/api/auth"
     || request.nextUrl.pathname === "/api/auth/logout"
     || request.nextUrl.pathname.startsWith("/api/extension/")
-    || request.nextUrl.pathname.startsWith("/api/webhooks/");
+    || request.nextUrl.pathname.startsWith("/api/webhooks/")
+    || request.nextUrl.pathname === "/api/oneshot-auth"
+    || request.nextUrl.pathname.startsWith("/api/feed/oneshot/")
+    || request.nextUrl.pathname.startsWith("/api/media/");
 
   if (isPublicPage || isPublicApi) {
     return NextResponse.next();
@@ -44,5 +47,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|icon-.*\\.png|apple-touch-icon\\.png|manifest\\.json|sw\\.js).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|icon-.*\\.png|apple-touch-icon\\.png|manifest\\.json|sw\\.js|logo\\.png).*)"],
 };

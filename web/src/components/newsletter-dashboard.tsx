@@ -47,6 +47,8 @@ interface DigestRun {
   finished_at: string | null;
   status: string;
   error: string | null;
+  subject: string | null;
+  schedule_name: string | null;
 }
 
 const DEFAULT_SYSTEM_PROMPT = "You summarize newsletter emails. Cover all notable stories, data points, and takeaways. Use bullet points for multiple stories. Include both main stories and smaller items. Include the most relevant external links (URLs) from the original email — especially links to articles, reports, or sources mentioned. If the email contains noteworthy images (charts, diagrams, photos), include their URLs using <img> tags. Use plain text with minimal HTML (<a>, <img>). Be thorough but concise.";
@@ -220,7 +222,9 @@ export function NewsletterDashboard() {
         : <Badge className="bg-yellow-100 text-yellow-800 text-xs">Afventer bekræftelse</Badge>;
     }
     if (email.digest_date) {
-      return <Badge className="bg-green-100 text-green-800 text-xs">I oversigt {email.digest_date}</Badge>;
+      const matchingRun = digestRuns.find((r) => r.digest_date === email.digest_date);
+      const schedulePart = matchingRun?.schedule_name ? ` (${matchingRun.schedule_name})` : "";
+      return <Badge className="bg-green-100 text-green-800 text-xs">I oversigt {formatDate(email.digest_date)}{schedulePart}</Badge>;
     }
     if (email.processed) {
       return <Badge className="bg-blue-100 text-blue-800 text-xs">Venter på næste oversigt</Badge>;
@@ -229,8 +233,16 @@ export function NewsletterDashboard() {
   }
 
   function formatDate(dateStr: string) {
-    const d = new Date(dateStr + "Z");
-    return d.toLocaleDateString("da-DK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    const d = new Date(dateStr + (dateStr.includes("T") || dateStr.includes(" ") ? "Z" : "T00:00:00Z"));
+    const weekday = d.toLocaleDateString("da-DK", { weekday: "long" });
+    const day = d.getDate();
+    const month = d.toLocaleDateString("da-DK", { month: "long" });
+    const year = d.getFullYear();
+    const hasTime = dateStr.includes("T") || dateStr.includes(" ");
+    const base = `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} d. ${day}. ${month.charAt(0).toUpperCase() + month.slice(1)} ${year}`;
+    if (!hasTime) return base;
+    const time = d.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+    return `${base} kl. ${time}`;
   }
 
   function timeAgo(dateStr: string) {
@@ -461,9 +473,14 @@ export function NewsletterDashboard() {
                         onClick={() => openDigestModal(run.id)}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium">
-                            Oversigt {run.digest_date}
-                          </p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium">
+                              {formatDate(run.digest_date)}
+                            </p>
+                            {run.subject && (
+                              <p className="text-xs text-muted-foreground truncate">{run.subject}</p>
+                            )}
+                          </div>
                           <Button
                             variant="outline"
                             size="sm"
@@ -486,14 +503,12 @@ export function NewsletterDashboard() {
                           >
                             {run.status === "success" ? "Sendt" : run.status === "error" ? "Fejl" : run.status}
                           </Badge>
+                          {run.schedule_name && (
+                            <Badge variant="secondary" className="text-xs">{run.schedule_name}</Badge>
+                          )}
                           <span className="text-xs text-muted-foreground">
                             {run.email_count} e-mail{run.email_count !== 1 ? "s" : ""}
                           </span>
-                          {run.finished_at && (
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(run.finished_at)}
-                            </span>
-                          )}
                         </div>
                       </div>
                       {run.error && (
@@ -684,7 +699,7 @@ export function NewsletterDashboard() {
           : `/api/newsletter/digest/${modal.id}/html`;
         const title = isEmail
           ? modalEmail?.subject || "E-mail"
-          : `Oversigt ${modalDigest?.digest_date || ""}`;
+          : modalDigest ? formatDate(modalDigest.digest_date) : "Oversigt";
         const subtitle = isEmail && modalEmail
           ? `${senderDisplayName(modalEmail.from_name, modalEmail.from_address, modalEmail.subject)} \u00b7 ${formatDate(modalEmail.received_at)}`
           : modalDigest

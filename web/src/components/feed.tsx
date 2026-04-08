@@ -16,6 +16,28 @@ const BASE_TABS = [
 
 const FB_TAB = { key: "fb_post", label: "Facebook" } as const;
 
+function formatDayHeader(dateStr: string) {
+  const d = new Date(dateStr + "T12:00:00Z");
+  const weekday = d.toLocaleDateString("da-DK", { weekday: "long" });
+  const day = d.getUTCDate();
+  const month = d.toLocaleDateString("da-DK", { month: "long" });
+  const year = d.getUTCFullYear();
+  return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} d. ${day}. ${month.charAt(0).toUpperCase() + month.slice(1)} ${year}`;
+}
+
+function groupByDay(posts: any[]): [string, any[]][] {
+  const groups: [string, any[]][] = [];
+  for (const post of posts) {
+    const day = post.timestamp.slice(0, 10);
+    if (!groups.length || groups[groups.length - 1][0] !== day) {
+      groups.push([day, [post]]);
+    } else {
+      groups[groups.length - 1][1].push(post);
+    }
+  }
+  return groups;
+}
+
 export function Feed({ account }: FeedProps) {
   const [posts, setPosts] = useState<any[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -78,8 +100,17 @@ export function Feed({ account }: FeedProps) {
         ))}
       </div>
       <div className="space-y-2">
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} />
+        {groupByDay(posts).map(([day, dayPosts]) => (
+          <div key={day}>
+            <p className="text-xs text-muted-foreground font-medium sticky top-0 bg-background py-1 z-10">
+              {formatDayHeader(day)}
+            </p>
+            <div className="space-y-2">
+              {dayPosts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
       {posts.length === 0 && !loading && (

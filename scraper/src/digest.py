@@ -1,4 +1,3 @@
-import base64
 import os
 from collections import defaultdict
 from jinja2 import Environment, FileSystemLoader
@@ -6,7 +5,7 @@ import resend
 
 
 class DigestBuilder:
-    def __init__(self, resend_api_key: str, base_url: str, media_path: str = "/data/media", from_email: str = "ig@raakode.dk"):
+    def __init__(self, resend_api_key: str, base_url: str, media_path: str = "/data/media", from_email: str = "low-scroll <ig@raakode.dk>"):
         self.base_url = base_url
         self.from_email = from_email
         self.media_path = media_path
@@ -14,20 +13,6 @@ class DigestBuilder:
 
         template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
         self._env = Environment(loader=FileSystemLoader(template_dir))
-
-    def _read_and_encode_image(self, rel_path: str) -> str | None:
-        full_path = os.path.join(self.media_path, rel_path)
-        if not os.path.exists(full_path):
-            return None
-        with open(full_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-
-    def _get_logo_base64(self) -> str | None:
-        logo_path = os.path.join(os.path.dirname(__file__), "..", "assets", "logo.png")
-        if not os.path.exists(logo_path):
-            return None
-        with open(logo_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
 
     def build_html(self, posts: list[dict], fb_posts: list[dict] | None = None, pending_dms: int = 0) -> tuple[str, list[dict]]:
         grouped = defaultdict(list)
@@ -40,35 +25,12 @@ class DigestBuilder:
             else:
                 post_count += 1
 
-        attachments = []
-
-        # Logo attachment
-        logo_b64 = self._get_logo_base64()
-        if logo_b64:
-            attachments.append({
-                "filename": "logo.png",
-                "content": logo_b64,
-                "content_type": "image/png",
-                "content_id": "logo",
-            })
-
-        # Thumbnail attachments
-        thumb_idx = 0
+        # Set thumbnail URLs for each post
         for username in sorted(grouped.keys()):
             for post in grouped[username]:
                 media_list = post.get("media", [])
                 if media_list and media_list[0].get("thumbnail_path"):
-                    thumb_b64 = self._read_and_encode_image(media_list[0]["thumbnail_path"])
-                    if thumb_b64:
-                        cid = f"thumb_{thumb_idx}"
-                        post["cid"] = cid
-                        attachments.append({
-                            "filename": f"{cid}.jpg",
-                            "content": thumb_b64,
-                            "content_type": "image/jpeg",
-                            "content_id": cid,
-                        })
-                        thumb_idx += 1
+                    post["thumbnail_url"] = f"{self.base_url}/api/media/{media_list[0]['thumbnail_path']}"
 
         account_list = sorted(grouped.keys())
 
@@ -92,7 +54,7 @@ class DigestBuilder:
             fb_count=fb_count,
             pending_dms=pending_dms,
         )
-        return html, attachments
+        return html, []
 
     def send(self, to_email: str, html: str, post_count: int, attachments: list[dict] | None = None, pending_dms: int = 0):
         parts = []
@@ -120,6 +82,6 @@ class DigestBuilder:
         resend.Emails.send({
             "from": self.from_email,
             "to": [to_email],
-            "subject": "ig-sub: Instagram cookies expired",
+            "subject": "low-scroll: Instagram cookies expired",
             "html": html,
         })

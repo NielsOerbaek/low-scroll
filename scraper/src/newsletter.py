@@ -41,7 +41,7 @@ def _classify_single_email(db: Database, client: Anthropic, email: dict):
     body_preview = (email.get("body_text") or "")[:1000]
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5",
         max_tokens=10,
         system=(
             "You classify incoming emails into exactly one of three categories:\n"
@@ -118,7 +118,7 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
     body_text = email.get("body_text") or ""
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5",
         max_tokens=500,
         system="Extract the confirmation/verify URL from subscription confirmation emails. Respond with ONLY the full URL, nothing else. If no confirmation URL exists, respond with NONE.",
         messages=[{"role": "user", "content": (
@@ -146,7 +146,7 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
         # Ask Claude to verify the response page
         page_text = BeautifulSoup(resp.text[:5000], "lxml").get_text(separator=" ", strip=True)[:2000]
         verify = client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5",
             max_tokens=50,
             system="You verify whether a newsletter subscription confirmation succeeded by reading the resulting page. Respond with EXACTLY one word: SUCCESS, FAILED, or UNCLEAR.",
             messages=[{"role": "user", "content": f"Page content after clicking the confirm link:\n\n{page_text}"}],
@@ -164,7 +164,7 @@ def _click_confirmation(db: Database, client: Anthropic, email: dict):
         db.mark_confirmation_clicked(email["id"])
 
 
-def build_and_send_digest(user_id: int):
+def build_and_send_digest(user_id: int, schedule_name: str | None = None):
     """Build a newsletter digest from undigested emails and send it."""
     config = Config()
     db = Database(config.DATABASE_PATH)
@@ -194,7 +194,7 @@ def build_and_send_digest(user_id: int):
 
             email_ids = [e["id"] for e in emails]
             db.mark_emails_digested(email_ids, today)
-            db.finish_newsletter_digest_run(run_id, "success", email_count=len(emails))
+            db.finish_newsletter_digest_run(run_id, "success", email_count=len(emails), subject=digest_title, schedule_name=schedule_name)
             logger.info(f"Newsletter digest sent for user {user_id}: {len(emails)} emails summarized")
 
         except Exception as e:
@@ -228,7 +228,7 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
 
         try:
             response = client.messages.create(
-                model="claude-opus-4-6",
+                model="claude-haiku-4-5",
                 max_tokens=2000,
                 system=system,
                 messages=[{"role": "user", "content": (
@@ -250,7 +250,9 @@ def _summarize_newsletters(client: Anthropic, emails: list[dict], system_prompt:
                 logger.error(f"Failed to save summary for email {email['id']}: {e}")
 
         summaries.append({
+            "id": email["id"],
             "from": email["from_address"],
+            "from_name": email.get("from_name", ""),
             "subject": email["subject"],
             "summary": summary,
             "received_at": email["received_at"],
@@ -264,30 +266,39 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
     """Use Claude to structure individual summaries into a themed digest. Returns (title, HTML)."""
     summaries_text = ""
     for s in summaries:
+        display_name = (s.get("from_name") or "").strip() or _clean_sender(s["from"], s["subject"])
+        link = f"https://news.raakode.dk/api/newsletter/email/{s['id']}/html"
         summaries_text += (
             f"--- Newsletter: {s['subject']} ---\n"
+            f"Source name: {display_name}\n"
+            f"Source link: {link}\n"
             f"From: {s['from']}\n"
             f"Received: {s['received_at']}\n"
             f"Summary:\n{s['summary']}\n\n"
         )
 
     default_system = (
-        "You are writing a daily briefing newsletter. Your output should read like a polished, "
-        "well-structured newsletter — not a list of summaries.\n\n"
+        "You are writing a daily briefing newsletter in English. Your output should read like a polished, "
+        "concise morning briefing — not a list of summaries.\n\n"
         "Structure:\n"
-        "1. Start with a short bullet-point overview listing each story covered. "
-        "For each bullet, mention which newsletter(s) covered it in parentheses.\n"
-        "2. After the bullet list, state how many newsletters this digest covers.\n"
-        "3. Then write the full briefing as flowing prose organized by theme. Group related stories, "
-        "combine overlapping coverage from different sources, and reference which newsletter(s) "
-        "reported each story. Put the most important stories first.\n"
-        "4. The tone should be informative and concise — like a morning briefing for a busy reader.\n"
-        "5. If a story relates to something covered in a previous digest, briefly note the connection "
-        "(e.g. 'following up on...', 'as previously reported...').\n\n"
+        "1. Start with a one-line count of how many newsletters this digest covers.\n"
+        "2. Then write numbered sections (1. Topic Title, 2. Topic Title, etc.). "
+        "Each section has a short topic title as an <h3> and 2-3 sentences of prose as a <p>. "
+        "Group related stories from different sources together.\n"
+        "3. Put the most important stories first. Keep it tight — busy readers skim.\n"
+        "4. If a story relates to something covered in a previous digest, briefly note the connection.\n"
+        "5. Use <strong> to bold key names, figures, and phrases in body text so readers can skim "
+        "quickly. But keep it selective — bold the 2-3 most important words per paragraph, not entire sentences.\n"
+        "6. At the end of each section, add a source line with clickable links to the original newsletter(s), "
+        "formatted as: <p style=\"font-size:13px;color:#8e8e8e;\">Source: "
+        "<a href=\"SOURCE_LINK\" style=\"color:#8e8e8e;\">Newsletter Name</a></p>. "
+        "Use the 'Source name' and 'Source link' provided for each newsletter. "
+        "If multiple newsletters covered the same topic, comma-separate the links.\n\n"
         "Output format:\n"
         "Wrap the email subject line in <title>...</title> tags.\n"
         "Then write the digest as simple HTML suitable for embedding in an email. "
-        "Use only basic tags: <h3>, <p>, <ul>, <li>, <strong>, <em>, <br>. "
+        "Use only basic tags: <h3>, <p>, <strong>, <em>, <br>, <a>. "
+        "Do NOT use <ul>, <li>, or bullet points. "
         "Use inline styles sparingly (only font-size and color). "
         "Do NOT include <html>, <head>, <body>, or <style> tags."
     )
@@ -306,7 +317,7 @@ def _structure_digest(client: Anthropic, summaries: list[dict], digest_prompt: s
 
     try:
         response = client.messages.create(
-            model="claude-opus-4-6",
+            model="claude-sonnet-4-5",
             max_tokens=10000,
             system=system,
             messages=[{"role": "user", "content": context + summaries_text}],
@@ -358,10 +369,18 @@ def _build_digest_html(config: Config, digest_content: str,
     env.filters["clean_sender"] = _sender_display
     template = env.get_template("newsletter_digest.html")
 
+    # Format date in Danish: "Torsdag d. 6. Marts 2026"
+    import locale
+    da_months = {1: "Januar", 2: "Februar", 3: "Marts", 4: "April", 5: "Maj", 6: "Juni",
+                 7: "Juli", 8: "August", 9: "September", 10: "Oktober", 11: "November", 12: "December"}
+    da_weekdays = {0: "Mandag", 1: "Tirsdag", 2: "Onsdag", 3: "Torsdag", 4: "Fredag", 5: "Lørdag", 6: "Søndag"}
+    d = datetime.strptime(digest_date, "%Y-%m-%d")
+    formatted_date = f"{da_weekdays[d.weekday()]} d. {d.day}. {da_months[d.month]} {d.year}"
+
     return template.render(
         digest_content=digest_content,
         email_count=email_count,
-        digest_date=digest_date,
+        digest_date=formatted_date,
         base_url=config.BASE_URL,
         emails=emails or [],
     )

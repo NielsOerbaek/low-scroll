@@ -85,7 +85,7 @@ export function PostCard({ post }: PostCardProps) {
             <span className="text-xs text-muted-foreground">{post.author_name}</span>
           )}
           <span className="text-xs text-muted-foreground ml-auto">
-            {new Date(post.timestamp).toLocaleDateString()}
+            {new Date(post.timestamp).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
         {post.content && <Caption text={post.content} />}
@@ -132,7 +132,7 @@ export function PostCard({ post }: PostCardProps) {
         </Link>
         <Badge variant="secondary" className="text-xs">{post.type}</Badge>
         <span className="text-xs text-muted-foreground ml-auto">
-          {new Date(post.timestamp).toLocaleDateString()}
+          {new Date(post.timestamp).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}
         </span>
       </div>
       {post.media && <MediaCarousel media={post.media} />}

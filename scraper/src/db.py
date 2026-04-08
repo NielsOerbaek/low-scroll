@@ -672,12 +672,20 @@ class Database:
 
     def finish_newsletter_digest_run(self, run_id: int, status: str,
                                      email_count: int = 0,
-                                     error: str | None = None):
+                                     error: str | None = None,
+                                     subject: str | None = None,
+                                     schedule_name: str | None = None):
+        # Ensure new columns exist (idempotent migrations)
+        for col in ("subject TEXT", "schedule_name TEXT"):
+            try:
+                self.execute(f"ALTER TABLE newsletter_digest_runs ADD COLUMN {col}")
+            except Exception:
+                pass
         self.execute(
             """UPDATE newsletter_digest_runs
-               SET finished_at=datetime('now'), status=?, email_count=?, error=?
+               SET finished_at=datetime('now'), status=?, email_count=?, error=?, subject=?, schedule_name=?
                WHERE id=?""",
-            (status, email_count, error, run_id),
+            (status, email_count, error, subject, schedule_name, run_id),
         )
         self.conn.commit()
 

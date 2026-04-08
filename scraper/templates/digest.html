@@ -16,7 +16,7 @@
         <tr><td style="padding:20px 24px;border-bottom:1px solid #eee;">
           <table cellpadding="0" cellspacing="0"><tr>
             <td style="vertical-align:middle;padding-right:10px;">
-              <img src="cid:logo" alt="low-scroll" width="32" height="32" style="display:block;border-radius:6px;">
+              <img src="{{ base_url }}/logo.png" alt="low-scroll" width="32" height="32" style="display:block;border-radius:6px;">
             </td>
             <td style="vertical-align:middle;">
               <span style="font-family:'Courier New',Courier,monospace;font-size:18px;font-weight:bold;color:#262626;">low-scroll</span>
@@ -29,11 +29,8 @@
         <tr><td style="padding:20px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:1px solid #eee;border-radius:8px;">
             <tr><td style="padding:16px 20px;">
-              <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:15px;font-weight:bold;color:#262626;">
-                {{ post_count }} post{{ 's' if post_count != 1 else '' }} and {{ story_count }} stor{{ 'ies' if story_count != 1 else 'y' }} from {{ account_count }} account{{ 's' if account_count != 1 else '' }}
-              </p>
-              <p style="margin:0 0 14px;font-family:'Courier New',Courier,monospace;font-size:12px;color:#8e8e8e;">
-                {{ account_list | join(', @') | replace(account_list[0], '@' + account_list[0]) }}
+              <p style="margin:0 0 12px;font-family:'Courier New',Courier,monospace;font-size:14px;color:#262626;">
+                {{ post_count }} post{{ 's' if post_count != 1 else '' }}, {{ story_count }} stor{{ 'ies' if story_count != 1 else 'y' }}, {{ account_count }} account{{ 's' if account_count != 1 else '' }}
               </p>
               <a href="{{ base_url }}" style="display:inline-block;padding:8px 20px;background:#DD2A7B;color:#ffffff;text-decoration:none;border-radius:6px;font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:bold;">View Full Feed</a>
             </td></tr>
@@ -64,9 +61,9 @@
 
           {% for post in posts %}
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #dbdbdb;border-radius:8px;margin-bottom:12px;">
-            {% if post.cid is defined and post.cid %}
+            {% if post.thumbnail_url is defined and post.thumbnail_url %}
             <tr><td style="padding:0;">
-              <img src="cid:{{ post.cid }}" alt="" width="100%" style="display:block;border-radius:8px 8px 0 0;max-width:552px;">
+              <img src="{{ post.thumbnail_url }}" alt="" width="100%" style="display:block;border-radius:8px 8px 0 0;max-width:552px;">
             </td></tr>
             {% endif %}
             <tr><td style="padding:12px 14px;">
