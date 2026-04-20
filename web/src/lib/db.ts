@@ -451,14 +451,14 @@ export function getNewsletterSchedules(userId: number): { id: string; name: stri
   }
 }
 
-export function getRecentDigestTexts(userId: number, limit = 3): { digest_date: string; digest_html: string }[] {
+export function getRecentDigestTexts(userId: number, limit = 3): { id: number; digest_date: string; subject: string | null; digest_html: string }[] {
   const db = getWritableDb();
   try { db.prepare("ALTER TABLE newsletter_digest_runs ADD COLUMN digest_html TEXT").run(); } catch {}
   db.close();
 
   return getDb()
     .prepare(
-      `SELECT digest_date, digest_html FROM newsletter_digest_runs
+      `SELECT id, digest_date, subject, digest_html FROM newsletter_digest_runs
        WHERE user_id = ? AND status = 'success' AND digest_html IS NOT NULL
        ORDER BY digest_date DESC LIMIT ?`
     )

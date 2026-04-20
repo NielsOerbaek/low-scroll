@@ -110,10 +110,12 @@ def run_user_scrape(user_id: int):
         else:
             logger.info(f"No FB cookies for user {user_id}, skipping Facebook scraping.")
 
-        # Send per-user digest email
+        # Send per-user digest email (skipped when IG digest is handled by Oneshot)
         total_new = total_posts + total_stories + new_fb_posts
         email_recipient = db.get_user_config(user_id, "email_recipient")
-        if email_recipient and (total_new > 0 or pending_dms > 0):
+        if config.IG_DIGEST_MODE == "oneshot":
+            logger.info(f"IG_DIGEST_MODE=oneshot, skipping inline digest email for user {user_id}")
+        elif email_recipient and (total_new > 0 or pending_dms > 0):
             run_info = db.get_scrape_run(run_id)
             new_posts = db.get_new_posts_since(user_id, run_info["started_at"])
             for post in new_posts:
@@ -454,7 +456,9 @@ def _run_ig_only_scrape(user_id: int):
 
         total_new = total_posts + total_stories
         email_recipient = db.get_user_config(user_id, "email_recipient")
-        if email_recipient and (total_new > 0 or pending_dms > 0):
+        if config.IG_DIGEST_MODE == "oneshot":
+            logger.info(f"IG_DIGEST_MODE=oneshot, skipping inline IG-only digest email for user {user_id}")
+        elif email_recipient and (total_new > 0 or pending_dms > 0):
             run_info = db.get_scrape_run(run_id)
             new_posts = db.get_new_posts_since(user_id, run_info["started_at"])
             for post in new_posts:

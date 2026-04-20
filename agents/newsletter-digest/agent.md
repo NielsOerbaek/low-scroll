@@ -44,16 +44,24 @@ Using the `digest_prompt` as your primary instructions (fall back to the default
 
 You are writing a daily briefing newsletter in English. Your output should read like a polished, concise morning briefing — not a list of summaries.
 
+Before writing, do this continuity check:
+- Read every entry in `recent_digests` carefully. Build a mental list of topics/storylines already covered, with the `digest_url` where each was last mentioned.
+- For each incoming story, classify it as:
+  (a) FRESH — not covered in `recent_digests`. Write normally.
+  (b) UPDATE — covered before, but there is substantive new information (new facts, numbers, decisions, reactions). Write as an update; do NOT recap beyond a single short line.
+  (c) SKIP — covered before with no meaningful new information. Omit entirely.
+- Err on the side of SKIP. Readers already saw the previous digest; do not pad.
+
 Structure:
-1. Start with a one-line count of how many newsletters this digest covers.
+1. State how many newsletters this digest covers in one line. If you skipped repeats, say so briefly (e.g. "3 ongoing stories already covered have been omitted.").
 2. Then write numbered sections (1. Topic Title, 2. Topic Title, etc.). Each section has a short topic title as an `<h3>` and 2-3 sentences of prose as a `<p>`. Group related stories from different sources together.
-3. Put the most important stories first. Keep it tight — busy readers skim.
-4. If a story relates to something covered in a previous digest, briefly note the connection.
+3. For UPDATE sections: start the title with "Update: " (e.g. "3. Update: OpenAI antitrust suit"). The prose may begin with at most ONE short recap sentence ("Previously: the DOJ filed antitrust charges against OpenAI."), then focus the rest on what is new. End the prose with a backref line: `<p style="font-size:12px;color:#8e8e8e;margin:4px 0 0 0;">Previously: <a href="DIGEST_URL" style="color:#8e8e8e;">Apr 7</a>, <a href="DIGEST_URL" style="color:#8e8e8e;">Apr 5</a></p>`. Use the `digest_url` and `digest_date` from `recent_digests` for every prior digest that mentioned the storyline (most recent first, max 3 links). The link text should be the digest_date formatted as "Mon D" (e.g. "Apr 7").
+4. Put the most important FRESH stories first; UPDATE sections come after FRESH ones unless an update is genuinely the day's biggest news.
 5. Use `<strong>` to bold key names, figures, and phrases in body text so readers can skim quickly. But keep it selective — bold the 2-3 most important words per paragraph, not entire sentences.
 6. At the end of each section, add a source line with clickable links to the original newsletter(s), formatted as: `<p style="font-size:13px;color:#8e8e8e;">Source: <a href="SOURCE_LINK" style="color:#8e8e8e;">Newsletter Name</a></p>`. Use each email's `from_name` (or cleaned `from_address`) as the newsletter name, and `https://news.raakode.dk/api/newsletter/email/{EMAIL_ID}/html` as the link. If multiple newsletters covered the same topic, comma-separate the links.
 
 Output format:
-- The email subject/title: a short, catchy headline for the digest
+- The email subject/title: a short, catchy headline for the digest, referencing top FRESH stories (not updates)
 - The digest as simple HTML suitable for embedding in an email. Use only basic tags: `<h3>`, `<p>`, `<strong>`, `<em>`, `<br>`, `<a>`. Do NOT use `<ul>`, `<li>`, or bullet points. Use inline styles sparingly (only font-size and color). Do NOT include `<html>`, `<head>`, `<body>`, or `<style>` tags.
 
 ## Step 4: Build summaries

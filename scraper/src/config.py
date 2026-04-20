@@ -10,3 +10,4 @@ class Config:
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
     NEWSLETTER_DIGEST_TIME = os.environ.get("NEWSLETTER_DIGEST_TIME", "07:00")
     NEWSLETTER_DIGEST_MODE = os.environ.get("NEWSLETTER_DIGEST_MODE", "local")
+    IG_DIGEST_MODE = os.environ.get("IG_DIGEST_MODE", "local")

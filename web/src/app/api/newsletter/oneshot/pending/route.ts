@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 
   const systemPrompt = getUserConfig(userId, "newsletter_system_prompt") || "";
   const digestPrompt = getUserConfig(userId, "newsletter_digest_prompt") || "";
-  const recentDigests = getRecentDigestTexts(userId, 3);
+  const recentDigests = getRecentDigestTexts(userId, 5);
 
   return NextResponse.json({
     pending: true,
@@ -97,8 +97,11 @@ export async function GET(request: NextRequest) {
     system_prompt: systemPrompt,
     digest_prompt: digestPrompt,
     recent_digests: recentDigests.map((d) => ({
+      id: d.id,
       digest_date: d.digest_date,
-      digest_html: (d.digest_html || "").slice(0, 3000),
+      subject: d.subject,
+      digest_url: `https://news.raakode.dk/api/newsletter/digest/${d.id}/html`,
+      digest_html: (d.digest_html || "").slice(0, 8000),
     })),
   });
 }

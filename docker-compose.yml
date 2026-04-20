@@ -42,6 +42,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - NEWSLETTER_DIGEST_TIME=${NEWSLETTER_DIGEST_TIME:-07:00}
       - NEWSLETTER_DIGEST_MODE=${NEWSLETTER_DIGEST_MODE:-local}
+      - IG_DIGEST_MODE=${IG_DIGEST_MODE:-local}
     volumes:
       - ./data/db:/data/db
       - ./data/media:/data/media
