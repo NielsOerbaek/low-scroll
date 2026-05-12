@@ -428,11 +428,11 @@ export function getNewsletterSubscriptions(userId: number): NewsletterSubscripti
 
 // ── Oneshot / Digest helpers ──────────────────────────────────
 
-export function getUndigestedEmails(userId: number): { id: number; from_address: string; from_name: string; subject: string; body_text: string; received_at: string }[] {
+export function getUndigestedEmails(userId: number): { id: number; from_address: string; from_name: string; subject: string; body_text: string; body_html: string; received_at: string }[] {
   return getDb()
     .prepare(
       `SELECT id, from_address, COALESCE(from_name, '') as from_name, subject,
-              COALESCE(body_text, '') as body_text, received_at
+              COALESCE(body_text, '') as body_text, COALESCE(body_html, '') as body_html, received_at
        FROM newsletter_emails
        WHERE user_id = ? AND processed = 1 AND is_confirmation = 0 AND digest_date IS NULL
        ORDER BY received_at ASC`

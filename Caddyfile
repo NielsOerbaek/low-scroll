@@ -6,6 +6,10 @@ news.raakode.dk {
     reverse_proxy web:3000
 }
 
+slidt.osogdata.dk {
+    reverse_proxy host.docker.internal:3000
+}
+
 oneshot.raakode.dk {
     handle /api/* {
         uri strip_prefix /api
@@ -15,4 +19,8 @@ oneshot.raakode.dk {
     handle {
         reverse_proxy host.docker.internal:5173
     }
+}
+
+box.raakode.dk {
+    reverse_proxy box:80
 }

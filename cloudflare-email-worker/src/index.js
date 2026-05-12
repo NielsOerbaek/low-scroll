@@ -20,7 +20,7 @@ export default {
       from: fromAddr,
       from_name: fromName,
       to: message.to,
-      subject: message.headers.get("subject") || "(no subject)",
+      subject: parsed.subject || message.headers.get("subject") || "(no subject)",
       message_id: message.headers.get("message-id") || "",
       body_text: parsed.text || "",
       body_html: parsed.html || "",

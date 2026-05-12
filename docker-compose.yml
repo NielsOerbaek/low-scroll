@@ -1,18 +1,4 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - ./data/caddy:/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      - web
-    restart: unless-stopped
-
   web:
     build: ./web
     expose:
@@ -29,6 +15,11 @@ services:
     volumes:
       - ./data/db:/data/db
       - ./data/media:/data/media
+    networks:
+      default:
+      proxy:
+        aliases:
+          - ig-sub-web
     restart: unless-stopped
 
   scraper:
@@ -47,3 +38,8 @@ services:
       - ./data/db:/data/db
       - ./data/media:/data/media
     restart: unless-stopped
+
+networks:
+  proxy:
+    external: true
+    name: proxy

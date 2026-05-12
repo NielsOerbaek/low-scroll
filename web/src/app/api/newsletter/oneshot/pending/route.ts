@@ -86,14 +86,31 @@ export async function GET(request: NextRequest) {
     pending: true,
     user_id: userId,
     schedule_name: dueScheduleName,
-    emails: emails.map((e) => ({
-      id: e.id,
-      from_address: e.from_address,
-      from_name: e.from_name,
-      subject: e.subject,
-      body_text: e.body_text.slice(0, 8000),
-      received_at: e.received_at,
-    })),
+    emails: emails.map((e) => {
+      let bodyText = e.body_text;
+      if (!bodyText && e.body_html) {
+        // Strip HTML tags and collapse whitespace for text-only newsletters
+        bodyText = e.body_html
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+      return {
+        id: e.id,
+        from_address: e.from_address,
+        from_name: e.from_name,
+        subject: e.subject,
+        body_text: bodyText.slice(0, 8000),
+        received_at: e.received_at,
+      };
+    }),
     system_prompt: systemPrompt,
     digest_prompt: digestPrompt,
     recent_digests: recentDigests.map((d) => ({
