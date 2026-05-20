@@ -12,6 +12,7 @@ services:
       - NEWS_PASSWORD=${NEWS_PASSWORD:-}
       - ONESHOT_API_KEY=${ONESHOT_API_KEY:-}
       - RESEND_API_KEY=${RESEND_API_KEY}
+      - HOSTNAME=0.0.0.0
     volumes:
       - ./data/db:/data/db
       - ./data/media:/data/media

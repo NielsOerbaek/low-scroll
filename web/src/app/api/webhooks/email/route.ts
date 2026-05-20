@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
   }
 
   const decoded = decodeMimeSubject(subject || "");
-  const cleanSubject = decoded || extractSubjectFromHtml(body_html || "") || "(no subject)";
+  const hasSubject = decoded && decoded !== "(no subject)";
+  const cleanSubject = hasSubject ? decoded : (extractSubjectFromHtml(body_html || "") || decoded || "(no subject)");
 
   const emailId = insertNewsletterEmail(
     userId,
