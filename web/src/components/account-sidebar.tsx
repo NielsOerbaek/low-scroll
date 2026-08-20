@@ -10,6 +10,7 @@ interface Account {
 
 export function AccountSidebar({ active }: { active?: string } = {}) {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     fetch("/api/accounts")
@@ -18,11 +19,32 @@ export function AccountSidebar({ active }: { active?: string } = {}) {
       .catch(() => {});
   }, []);
 
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      await fetch("/api/accounts/sync", { method: "POST" });
+    } catch {
+      // ignore
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div>
-      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        Accounts
-      </h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+          Accounts
+        </h2>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors"
+          title="Sync follow list from Instagram"
+        >
+          {syncing ? "Syncing…" : "Sync"}
+        </button>
+      </div>
       {accounts.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No accounts yet. Sync cookies and run a scrape to get started.

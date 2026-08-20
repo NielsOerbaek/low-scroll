@@ -371,6 +371,33 @@ def check_user_manual_runs():
         db.close()
 
 
+def _run_sync_following(user_id: int):
+    """Sync the accounts table from the user's current IG following list."""
+    logger.info(f"Starting sync_following for user {user_id}...")
+    config = Config()
+    db = Database(config.DATABASE_PATH)
+    db.initialize()
+
+    try:
+        cookie_mgr = CookieManager(db, config.ENCRYPTION_KEY)
+        cookies = cookie_mgr.get_cookies(user_id)
+        if not cookies:
+            logger.warning(f"No IG cookies for user {user_id}, cannot sync following.")
+            return
+        ig = InstagramClient(cookies)
+        downloader = MediaDownloader(config.MEDIA_PATH)
+        scraper = Scraper(db=db, ig_client=ig, downloader=downloader, user_id=user_id)
+        scraper.sync_following()
+        logger.info(f"sync_following complete for user {user_id}")
+    except SessionExpiredError:
+        logger.warning(f"Session expired during sync_following for user {user_id}")
+        cookie_mgr.mark_stale(user_id)
+    except Exception as e:
+        logger.error(f"sync_following failed for user {user_id}: {e}")
+    finally:
+        db.close()
+
+
 def check_user_triggers():
     """Check all active users for pending triggered scrapes (IG, FB, or full)."""
     config = Config()
@@ -403,6 +430,17 @@ def check_user_triggers():
                 db._conn = None
                 db.initialize()
                 db.set_user_config(user_id, "trigger_ig_scrape", "done")
+
+            # Sync following trigger
+            sync_trigger = db.get_user_config(user_id, "trigger_sync_following")
+            if sync_trigger == "pending":
+                logger.info(f"Sync following trigger for user {user_id}...")
+                db.set_user_config(user_id, "trigger_sync_following", "running")
+                db.close()
+                _run_sync_following(user_id)
+                db._conn = None
+                db.initialize()
+                db.set_user_config(user_id, "trigger_sync_following", "done")
 
             # FB-only trigger
             fb_trigger = db.get_user_config(user_id, "trigger_fb_scrape")
