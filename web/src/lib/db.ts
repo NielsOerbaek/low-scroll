@@ -17,6 +17,7 @@ export interface Account {
   profile_pic_path: string | null;
   last_checked_at: string | null;
   added_at: string;
+  following: number; // 1 = currently following, 0 = unfollowed
 }
 
 export interface Post {

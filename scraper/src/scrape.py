@@ -100,7 +100,7 @@ class Scraper:
     def scrape_all(self) -> tuple[int, int]:
         """Scrape the timeline feed and stories tray instead of per-profile."""
         accounts = self.db.get_all_accounts(self.user_id)
-        followed = {a["username"] for a in accounts}
+        followed = {a["username"] for a in accounts if a.get("following", 1)}
         total_posts = 0
         total_stories = 0
 
@@ -155,7 +155,7 @@ class Scraper:
             )
             self.db.upsert_account(self.user_id, user["username"], file_path)
             self.ig.random_delay(3.0, 8.0)
-        self.db.delete_accounts_not_in(self.user_id, following_usernames)
+        self.db.mark_accounts_unfollowed(self.user_id, following_usernames)
 
     def scrape_fb_group(self, group_id: str) -> int:
         if not self.fb:

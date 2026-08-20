@@ -232,22 +232,29 @@ class Database:
     # ── Instagram Accounts ─────────────────────────────────────────
 
     def upsert_account(self, user_id: int, username: str, profile_pic_path: str | None):
+        # Ensure following column exists (migration for existing DBs)
+        try:
+            self.execute("ALTER TABLE accounts ADD COLUMN following BOOLEAN NOT NULL DEFAULT 1")
+        except Exception:
+            pass
         self.execute(
-            """INSERT INTO accounts (user_id, username, profile_pic_path)
-               VALUES (?, ?, ?)
-               ON CONFLICT(user_id, username) DO UPDATE SET profile_pic_path=excluded.profile_pic_path""",
+            """INSERT INTO accounts (user_id, username, profile_pic_path, following)
+               VALUES (?, ?, ?, 1)
+               ON CONFLICT(user_id, username) DO UPDATE SET
+                 profile_pic_path=excluded.profile_pic_path,
+                 following=1""",
             (user_id, username, profile_pic_path),
         )
         self.conn.commit()
 
-    def delete_accounts_not_in(self, user_id: int, usernames: list[str]):
+    def mark_accounts_unfollowed(self, user_id: int, usernames: list[str]):
+        """Mark accounts not in usernames as unfollowed (keeps them in DB for history)."""
         if not usernames:
             return
         placeholders = ",".join("?" for _ in usernames)
         self.execute(
-            f"""DELETE FROM accounts WHERE user_id=? AND username NOT IN ({placeholders})
-                AND username NOT IN (SELECT DISTINCT username FROM posts WHERE user_id=?)""",
-            [user_id] + usernames + [user_id],
+            f"UPDATE accounts SET following=0 WHERE user_id=? AND username NOT IN ({placeholders})",
+            [user_id] + usernames,
         )
         self.conn.commit()
 
