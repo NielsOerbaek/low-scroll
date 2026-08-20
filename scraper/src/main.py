@@ -157,6 +157,9 @@ def check_due_scrapes():
             last_scrape = db.get_last_scrape_time(user_id)
 
             if is_scrape_due(cron_schedule, last_scrape):
+                if db.get_user_config(user_id, "ig_cookies_stale") == "true":
+                    logger.debug(f"Skipping scrape for user {user_id}: IG cookies are stale, waiting for refresh")
+                    continue
                 logger.info(f"Scrape due for user {user_id} (cron={cron_schedule}, last={last_scrape})")
                 db.close()
                 run_user_scrape(user_id)

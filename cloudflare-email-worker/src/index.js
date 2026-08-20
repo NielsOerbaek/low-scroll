@@ -5,8 +5,8 @@ export default {
     const webhookUrl = env.WEBHOOK_URL;
     const apiKey = env.NEWSLETTER_API_KEY;
 
-    // Read raw email
-    const rawEmail = await new Response(message.raw).text();
+    // Read raw email as ArrayBuffer to preserve CRLF line endings for MIME parsing
+    const rawEmail = await new Response(message.raw).arrayBuffer();
 
     // Parse MIME to extract text and HTML body
     const parser = new PostalMime();

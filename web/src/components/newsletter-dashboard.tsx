@@ -284,6 +284,16 @@ export function NewsletterDashboard() {
     return name.charAt(0).toUpperCase() + name.slice(1);
   }
 
+  function displaySubject(subject: string, fromName: string | undefined | null, fromAddress: string, receivedAt: string): string {
+    if (!subject || subject === "(no subject)") {
+      const sender = senderDisplayName(fromName, fromAddress);
+      const date = new Date(receivedAt);
+      const formatted = date.toLocaleDateString("da-DK", { day: "numeric", month: "short" });
+      return `${sender} · ${formatted}`;
+    }
+    return subject;
+  }
+
   if (loading) return <p>Indlæser...</p>;
 
   const textareaClass = "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
@@ -418,7 +428,7 @@ export function NewsletterDashboard() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{email.subject}</p>
+                            <p className="text-sm font-medium truncate">{displaySubject(email.subject, email.from_name, email.from_address, email.received_at)}</p>
                             <p className="text-xs text-muted-foreground truncate">
                               {senderDisplayName(email.from_name, email.from_address, email.subject)}
                             </p>
@@ -697,8 +707,8 @@ export function NewsletterDashboard() {
         const iframeSrc = isEmail
           ? `/api/newsletter/email/${modal.id}/html`
           : `/api/newsletter/digest/${modal.id}/html`;
-        const title = isEmail
-          ? modalEmail?.subject || "E-mail"
+        const title = isEmail && modalEmail
+          ? displaySubject(modalEmail.subject, modalEmail.from_name, modalEmail.from_address, modalEmail.received_at)
           : modalDigest ? formatDate(modalDigest.digest_date) : "Oversigt";
         const subtitle = isEmail && modalEmail
           ? `${senderDisplayName(modalEmail.from_name, modalEmail.from_address, modalEmail.subject)} \u00b7 ${formatDate(modalEmail.received_at)}`

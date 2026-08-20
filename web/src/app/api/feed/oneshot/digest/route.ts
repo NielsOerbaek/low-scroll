@@ -118,8 +118,12 @@ function buildProceduralDigestHtml(digestDate: string, posts: DigestPost[]): { h
     const caption = (p.content || "").slice(0, 200).replace(/\n/g, " ");
     const snippet = caption ? escapeHtml(caption) + ((p.content || "").length > 200 ? "…" : "") : "";
     const time = new Date(p.timestamp).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
-    const linkOpen = p.permalink ? `<a href="${escapeHtml(p.permalink)}" style="text-decoration:none;">` : "";
-    const linkClose = p.permalink ? "</a>" : "";
+    // For IG posts/stories, link to ig.raakode.dk; for FB, use permalink
+    const postUrl = p.platform !== "facebook"
+      ? `https://ig.raakode.dk/${p.type === "story" ? "story" : "post"}/${p.id}`
+      : p.permalink;
+    const linkOpen = postUrl ? `<a href="${escapeHtml(postUrl)}" style="text-decoration:none;">` : "";
+    const linkClose = postUrl ? "</a>" : "";
 
     // Thumbnail
     let img = "";
@@ -137,7 +141,7 @@ function buildProceduralDigestHtml(digestDate: string, posts: DigestPost[]): { h
         ${snippet ? `<p style="margin:8px 0 6px;font-family:'Courier New',Courier,monospace;font-size:13px;color:#262626;line-height:1.4;">${snippet}</p>` : ""}
         <p style="margin:6px 0 0;font-family:'Courier New',Courier,monospace;font-size:11px;color:#8e8e8e;">
           ${time}
-          ${p.permalink ? `&nbsp;&middot;&nbsp; <a href="${escapeHtml(p.permalink)}" style="color:#0095f6;text-decoration:none;">Se opslag &rarr;</a>` : ""}
+          ${postUrl ? `&nbsp;&middot;&nbsp; <a href="${escapeHtml(postUrl)}" style="color:#0095f6;text-decoration:none;">Se opslag &rarr;</a>` : ""}
         </p>
       </td></tr>
     </table>`;
